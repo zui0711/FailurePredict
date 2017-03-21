@@ -1,0 +1,360 @@
+# coding=utf-8
+
+import os
+import re
+import sys
+
+from os.path import join as pjoin
+from configs.data_config import *
+
+from tensorflow.python.platform import gfile
+
+_PAD = "_PAD"
+_GO = "_GO"
+_EOS = "_EOS"
+_UNK = "_UNK"
+_START_VOCAB = [_PAD, _GO, _EOS, _UNK]
+
+PAD_ID = 0
+GO_ID = 1
+EOS_ID = 2
+UNK_ID = 3
+
+# 正则表达式
+_WORD_SPLIT = re.compile("([.,!?\"':;)(])")
+_DIGIT_RE = re.compile(r"\d{3,}") # 匹配数字3次+
+
+def basic_tokenizer(sentence):
+    """Very basic tokenizer: split the sentence into a list of tokens."""
+    words = []
+    for space_separated_fragment in sentence.strip().split():
+        words.extend(re.split(_WORD_SPLIT, space_separated_fragment))
+    return [w for w in words if w]
+
+
+def create_vocabulary(vocabulary_path, data_path, max_vocabulary_size,
+                      tokenizer=None, normalize_digits=True):
+
+    """Create vocabulary file (if it does not exist yet) from data file.
+
+    Data file is assumed to contain one sentence per line. Each sentence is
+    tokenized and digits are normalized (if normalize_digits is set).
+    Vocabulary contains the most-frequent tokens up to max_vocabulary_size.
+    We write it to vocabulary_path in a one-token-per-line format, so that later
+    token in the first line gets id=0, second line gets id=1, and so on.
+
+    Args:
+      vocabulary_path: path where the vocabulary will be created.
+      data_path: data file that will be used to create vocabulary.
+      max_vocabulary_size: limit on the size of the created vocabulary.
+      tokenizer: a function to use to tokenize each data sentence;
+        if None, basic_tokenizer will be used.
+      normalize_digits: Boolean; if true, all digits are replaced by 0s.
+    """
+    if not gfile.Exists(vocabulary_path):
+        print("Creating vocabulary %s from data %s" % (vocabulary_path, data_path))
+        vocab = {}
+        with gfile.GFile(data_path, mode="r") as f:
+            counter = 0
+            for line in f:
+                counter += 1
+                if counter % 100000 == 0:
+                    print("  processing line %d" % counter)
+                tokens = tokenizer(line) if tokenizer else basic_tokenizer(line)
+                for w in tokens:
+                    word = re.sub(_DIGIT_RE, "0", w) if normalize_digits else w
+                    if word in vocab:
+                        vocab[word] += 1
+                    else:
+                        vocab[word] = 1
+            vocab_list = _START_VOCAB + sorted(vocab, key=vocab.get, reverse=True)
+            if len(vocab_list) > max_vocabulary_size:
+                vocab_list = vocab_list[:max_vocabulary_size]
+            with gfile.GFile(vocabulary_path, mode="w") as vocab_file:
+                for w in vocab_list:
+                    vocab_file.write(w + "\n")
+
+
+def initialize_vocabulary(vocabulary_path):
+    """Initialize vocabulary from file.
+
+    We assume the vocabulary is stored one-item-per-line, so a file:
+    dog
+    cat
+    will result in a vocabulary {"dog": 0, "cat": 1}, and this function will
+    also return the reversed-vocabulary ["dog", "cat"].
+
+    Args:
+    vocabulary_path: path to the file containing the vocabulary.
+
+    Returns:
+    a pair: the vocabulary (a dictionary mapping string to integers), and
+    the reversed vocabulary (a list, which reverses the vocabulary mapping).
+
+    Raises:
+    ValueError: if the provided vocabulary_path does not exist.
+    """
+    if gfile.Exists(vocabulary_path):
+        rev_vocab = []
+
+        with gfile.GFile(vocabulary_path, mode="r") as f:
+            rev_vocab.extend(f.readlines())
+
+        rev_vocab = [line.strip() for line in rev_vocab]
+        vocab = dict([(x, y) for (y, x) in enumerate(rev_vocab)])
+        return vocab, rev_vocab
+
+    else:
+        raise ValueError("Vocabulary file %s not found.", vocabulary_path)
+
+
+def sentence_to_token_ids(sentence, vocabulary,
+                          tokenizer=None, normalize_digits=True):
+    """Convert a string to list of integers representing token-ids.
+
+    For example, a sentence "I have a dog" may become tokenized into
+    ["I", "have", "a", "dog"] and with vocabulary {"I": 1, "have": 2,
+    "a": 4, "dog": 7"} this function will return [1, 2, 4, 7].
+
+    Args:
+    sentence: a string, the sentence to convert to token-ids.
+    vocabulary: a dictionary mapping tokens to integers.
+    tokenizer: a function to use to tokenize each sentence;
+      if None, basic_tokenizer will be used.
+    normalize_digits: Boolean; if true, all digits are replaced by 0s.
+
+    Returns:
+    a list of integers, the token-ids for the sentence.
+    """
+    if tokenizer:
+        words = tokenizer(sentence)
+    else:
+        words = basic_tokenizer(sentence)
+    if not normalize_digits:
+        return [vocabulary.get(w, UNK_ID) for w in words]
+    # Normalize digits by 0 before looking words up in the vocabulary.
+    return [vocabulary.get(re.sub(_DIGIT_RE, "0", w), UNK_ID) for w in words]
+
+
+def data_to_token_ids(data_path, target_path, vocabulary_path,
+                      tokenizer=None, normalize_digits=True):
+    """Tokenize data file and turn into token-ids using given vocabulary file.
+
+    This function loads data line-by-line from data_path, calls the above
+    sentence_to_token_ids, and saves the result to target_path. See comment
+    for sentence_to_token_ids on the details of token-ids format.
+
+    Args:
+    data_path: path to the data file in one-sentence-per-line format.
+    target_path: path where the file with token-ids will be created.
+    vocabulary_path: path to the vocabulary file.
+    tokenizer: a function to use to tokenize each sentence;
+    if None, basic_tokenizer will be used.
+    normalize_digits: Boolean; if true, all digits are replaced by 0s.
+    """
+    if not gfile.Exists(target_path):
+        print("Tokenizing data in %s" % data_path)
+        vocab, _ = initialize_vocabulary(vocabulary_path)
+        with gfile.GFile(data_path, mode="r") as data_file:
+            with gfile.GFile(target_path, mode="w") as tokens_file:
+                counter = 0
+                for line in data_file:
+                    counter += 1
+                    if counter % 100000 == 0:
+                        print("  tokenizing line %d" % counter)
+                    token_ids = sentence_to_token_ids(line, vocab, tokenizer, normalize_digits)
+                    tokens_file.write(" ".join([str(tok) for tok in token_ids]) + "\n")
+
+
+
+# def prepare_dialog_data(data_dir, vocabulary_size):
+#     """Get dialog data into data_dir, create vocabularies and tokenize data.
+#
+#     Args:
+#     data_dir: directory in which the data sets will be stored.
+#     vocabulary_size: size of the English vocabulary to create and use.
+#
+#     Returns:
+#     A tuple of 3 elements:
+#       (1) path to the token-ids for chat training data-set,
+#       (2) path to the token-ids for chat development data-set,
+#       (3) path to the chat vocabulary file
+#     """
+#     # Get dialog data to the specified directory.
+#     train_path = get_dialog_train_set_path(data_dir)
+#     dev_path = get_dialog_dev_set_path(data_dir)
+#
+#     # Create vocabularies of the appropriate sizes.
+#     vocab_path = os.path.join(data_dir, "vocab%d.in" % vocabulary_size)
+#     create_vocabulary(vocab_path, train_path + ".in", vocabulary_size)
+#
+#     # Create token ids for the training data.
+#     train_ids_path = train_path + (".ids%d.in" % vocabulary_size)
+#     data_to_token_ids(train_path + ".in", train_ids_path, vocab_path)
+#
+#     # Create token ids for the development data.
+#     dev_ids_path = dev_path + (".ids%d.in" % vocabulary_size)
+#     data_to_token_ids(dev_path + ".in", dev_ids_path, vocab_path)
+#
+#     return (train_ids_path, dev_ids_path, vocab_path)
+
+
+def prepare_encode_decode_data(source_path, source_name, save_path, label,
+                               encode_decode_window, encode_decode_gap, encode_decode_step):
+    """
+    为预测模型准备<编码, 解码, 标签>样本
+    Args:
+        source_path: 原始文件输入路径
+        source_name: 原始文件名
+        save_path: 保存文件路径
+        label: 错误/正常类型
+        encode_decode_window: 编解码对窗口大小
+        encode_decode_gap: 编解码对间距
+        encode_decode_step: 编解码对窗口每次滑动步长
+
+    Returns:
+
+    """
+    save_path = pjoin(save_path, label)
+    # 先判断是否已经将原始样本切分为normal/error/recovery三部分
+    if not gfile.Exists(pjoin(save_path, "error")):
+        print("cut data to normal/error/recovery...")
+        cut_data(source_path, source_name, save_path)
+
+    print("get <encode, decode, label> data...")
+
+    if_err = []
+    count = 0
+    this_save_path = pjoin(save_path, "_".join([str(encode_decode_window), str(encode_decode_gap), str(encode_decode_step)]))
+    print("this_save_path = ", this_save_path)
+    for num in range(1, len(gfile.ListDirectory(pjoin(save_path, "error")))):
+        with gfile.GFile(pjoin(save_path, "normal", str(num)+".txt"), mode="rb") as normal_f, \
+             gfile.GFile(pjoin(save_path, "error", str(num)+".txt"), mode="rb") as error_f:
+            normal_c = normal_f.readlines()
+            error_c = error_f.readlines()
+            contxt = normal_c + error_c
+
+            print("len(contxt) = %d"%len(contxt), "len(normal_c) = %d"%len(normal_c), "len(error_c) = %d"%len(error_c))
+            encode_s = 0
+            encode_e = encode_s + encode_decode_window
+
+            decode_s = encode_e + encode_decode_gap
+            decode_e = decode_s + encode_decode_window
+
+            while (decode_e < len(normal_c)):
+                f = pjoin(this_save_path, "encode")
+                if not gfile.Exists(f):
+                    gfile.MakeDirs(f)
+                with gfile.GFile(pjoin(f, str(count) + ".txt"), mode="wb") as inf:
+                    for line in contxt[encode_s: encode_e]:
+                        # inf.write(line.strip()+" SEN_END\n")
+                        inf.write(line.strip() + "\n")
+                f = pjoin(this_save_path, "decode")
+                if not gfile.Exists(f):
+                    gfile.MakeDirs(f)
+                with gfile.GFile(pjoin(f, str(count) + ".txt"), mode="wb") as outf:
+                    for line in contxt[decode_s: decode_e]:
+                        # outf.write(line.strip()+" SEN_END\n")
+                        outf.write(line.strip() + "\n")
+
+                if_err.append("Normal")
+                count += 1
+                # update_bound(encode_s, encode_e, decode_s, decode_e)
+                encode_s += encode_decode_step
+                encode_e = encode_s + encode_decode_window
+
+                decode_s = encode_e + encode_decode_gap
+                decode_e = decode_s + encode_decode_window
+
+            while (encode_e < len(normal_c)):
+                # print(i, encode_s)
+
+                with gfile.GFile(pjoin(this_save_path, "encode", str(count) + ".txt"), mode="wb") as inf:
+                    for line in contxt[encode_s: encode_e]:
+                        inf.write(line)
+                with gfile.GFile(pjoin(this_save_path, "decode", str(count) + ".txt"), mode="wb") as outf:
+                    for line in contxt[decode_s: decode_e]:
+                        arr = line.split()
+                        write = True
+                        for word in ERRORNAME:
+                            if word in arr:
+                                # print(line, "ERRORNAME")
+                                write = False
+                                break
+                        if write:
+                            # outf.write(line.strip()+" SEN_END\n")
+                            outf.write(line.strip() + "\n")
+
+                if_err.append("Error")
+                count += 1
+
+                encode_s += encode_decode_step
+                encode_e = encode_s + encode_decode_window
+
+                decode_s = encode_e + encode_decode_gap
+                decode_e = decode_s + encode_decode_window
+
+            #print("len(if_err)", len(if_err))
+            with gfile.GFile(pjoin(this_save_path, "labels.txt"), "wb") as wf:
+                for state in if_err:
+                    wf.write(state + "\n")
+
+
+def cut_data(source_path, source_name, save_path):
+    """将原始样本切分为normal/error/recovery三部分"""
+
+    for name in ["error", "normal", "recovery"]:
+        gfile.MakeDirs(pjoin(save_path, name))
+
+    ERR_flag = 0
+    REC_flag = 0
+
+    cut_start = []  # 故障开始
+    cut_mid = []  # 故障结束,开始恢复
+    cut_end = [-1]  # 恢复结束
+
+    # 判断每句是否有错误
+    with gfile.GFile(pjoin(source_path, source_name, "clean.txt"), mode="rb") as f:
+        contxt = f.readlines()
+        print(len(contxt))
+        flags = [0 for i in range(len(contxt))] # 0:normal. 1:error, -1:recovery
+        for i, line in enumerate(contxt):
+            arr = line.split()
+            for word in arr:
+                if word in ERRORNAME:
+                    flags[i] = 1
+                    break
+                elif word in ERRORRECOVERY:
+                    flags[i] = -1
+                    break
+
+    # 对error,recovery作切分标记
+    write = True
+    for i, f in enumerate(flags):
+        if f == 1:
+            if REC_flag > ERR_flag:
+                write = True
+                cut_end.append(REC_flag)
+            if write:
+                cut_start.append(i)
+                write = False
+            ERR_flag = i
+        elif f == -1:
+            if REC_flag < ERR_flag:
+                cut_mid.append(i)
+            REC_flag = i
+
+    for i in range(len(cut_start) - 1):
+        with gfile.GFile(pjoin(save_path, "normal", str(i) + ".txt"), mode="wb") as f:
+            for line in contxt[cut_end[i] + 1: cut_start[i]]:
+                f.write(line)
+
+        with gfile.GFile(pjoin(save_path, "error", str(i) + ".txt"), mode="wb") as f:
+            for line in contxt[cut_start[i]: cut_mid[i] - 1]:
+                f.write(line)
+
+        with gfile.GFile(pjoin(save_path, "recovery", str(i) + ".txt"), mode="wb") as f:
+            for line in contxt[cut_mid[i]:cut_end[i + 1]]:
+                f.write(line)
+
+
