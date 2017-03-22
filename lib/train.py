@@ -23,7 +23,19 @@ def train():
 
         # Create model.
         print("Creating %d layers of %d units." % (FLAGS.num_layers, FLAGS.size))
-        model = create_model(sess, forward_only=False)
+        #model = create_model(sess, forward_only=False)
+        model = Seq2SeqModel(source_vocab_size=FLAGS.vocab_size,
+        target_vocab_size=FLAGS.vocab_size,
+        buckets=BUCKETS,
+        size=FLAGS.size,
+        embedding_size=FLAGS.embedding_size,
+        num_layers=FLAGS.num_layers,
+        max_gradient_norm=FLAGS.max_gradient_norm,
+        batch_size=FLAGS.batch_size,
+        learning_rate=FLAGS.learning_rate,
+        learning_rate_decay_factor=FLAGS.learning_rate_decay_factor,
+        use_lstm=True,
+        forward_only=forward_only).create_model(sess, FLAGS)
 
         # Read data into buckets and compute their sizes.
         print ("Reading development and training data (limit: %d)." % FLAGS.max_train_data_size)

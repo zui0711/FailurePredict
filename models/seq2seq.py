@@ -21,7 +21,6 @@ class Seq2SeqModel(object):
       http://arxiv.org/abs/1412.2007
     """
 
-
     def __init__(self, source_vocab_size, target_vocab_size, buckets, size,
                  embedding_size, num_layers, max_gradient_norm, batch_size,
                  learning_rate, learning_rate_decay_factor, use_lstm=False,
@@ -215,4 +214,42 @@ class Seq2SeqModel(object):
             batch_weights.append(batch_weight)
         return batch_encoder_inputs, batch_decoder_inputs, batch_weights
 
+
+    def create_model(self, session, FLAGS):
+                     # source_vocab_size, target_vocab_size, buckets, size, embedding_size,
+                     # num_layers, max_gradient_norm, batch_size, learning_rate,
+                     # learning_rate_decay_factor, use_lstm=True, forward_only=False):
+
+        # model = Seq2SeqModel(source_vocab_size, target_vocab_size, buckets, size, embedding_size,
+        #                      num_layers, max_gradient_norm, batch_size, learning_rate,
+        #                      learning_rate_decay_factor, use_lstm, forward_only)
+
+        ckpt = tf.train.get_checkpoint_state(FLAGS.model_dir)
+        # if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
+        if ckpt:
+            print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
+            self.saver.restore(session, ckpt.model_checkpoint_path)
+        else:
+            print("Created model with fresh parameters.")
+            session.run(tf.initialize_all_variables())
+
+
+def create_model(session, FLAGS,
+                 source_vocab_size, target_vocab_size, buckets, size, embedding_size,
+                 num_layers, max_gradient_norm, batch_size, learning_rate,
+                 learning_rate_decay_factor, use_lstm=True, forward_only=False):
+
+    model = Seq2SeqModel(source_vocab_size, target_vocab_size, buckets, size, embedding_size,
+                         num_layers, max_gradient_norm, batch_size, learning_rate,
+                         learning_rate_decay_factor, use_lstm, forward_only)
+
+    ckpt = tf.train.get_checkpoint_state(FLAGS.model_dir)
+    # if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
+    if ckpt:
+        print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
+        model.saver.restore(session, ckpt.model_checkpoint_path)
+    else:
+        print("Created model with fresh parameters.")
+        session.run(tf.initialize_all_variables())
+    return
 
