@@ -167,36 +167,73 @@ def data_to_token_ids(data_path, target_path, vocabulary_path,
 
 
 
-# def prepare_dialog_data(data_dir, vocabulary_size):
-#     """Get dialog data into data_dir, create vocabularies and tokenize data.
-#
-#     Args:
-#     data_dir: directory in which the data sets will be stored.
-#     vocabulary_size: size of the English vocabulary to create and use.
-#
-#     Returns:
-#     A tuple of 3 elements:
-#       (1) path to the token-ids for chat training data-set,
-#       (2) path to the token-ids for chat development data-set,
-#       (3) path to the chat vocabulary file
-#     """
-#     # Get dialog data to the specified directory.
-#     train_path = get_dialog_train_set_path(data_dir)
-#     dev_path = get_dialog_dev_set_path(data_dir)
-#
-#     # Create vocabularies of the appropriate sizes.
-#     vocab_path = os.path.join(data_dir, "vocab%d.in" % vocabulary_size)
-#     create_vocabulary(vocab_path, train_path + ".in", vocabulary_size)
-#
-#     # Create token ids for the training data.
-#     train_ids_path = train_path + (".ids%d.in" % vocabulary_size)
-#     data_to_token_ids(train_path + ".in", train_ids_path, vocab_path)
-#
-#     # Create token ids for the development data.
-#     dev_ids_path = dev_path + (".ids%d.in" % vocabulary_size)
-#     data_to_token_ids(dev_path + ".in", dev_ids_path, vocab_path)
-#
-#     return (train_ids_path, dev_ids_path, vocab_path)
+def prepare_dialog_data(data_dir, vocabulary_size):
+    """Get dialog data into data_dir, create vocabularies and tokenize data.
+
+    Args:
+    data_dir: directory in which the data sets will be stored.
+    vocabulary_size: size of the English vocabulary to create and use.
+
+    Returns:
+    A tuple of 3 elements:
+      (1) path to the token-ids for chat training data-set,
+      (2) path to the token-ids for chat development data-set,
+      (3) path to the chat vocabulary file
+    """
+    # Get dialog data to the specified directory.
+    train_path = pjoin(data_dir, "train")
+    dev_path = pjoin(data_dir, "test")
+
+    # Create vocabularies of the appropriate sizes.
+    vocab_path = os.path.join(data_dir, "vocab%d.txt" % vocabulary_size)
+    create_vocabulary(vocab_path, train_path + ".txt", vocabulary_size)
+
+    # Create token ids for the training data.
+    train_ids_path = train_path + (".ids%d.txt" % vocabulary_size)
+    data_to_token_ids(train_path + ".txt", train_ids_path, vocab_path)
+
+    # Create token ids for the development data.
+    dev_ids_path = dev_path + (".ids%d.txt" % vocabulary_size)
+    data_to_token_ids(dev_path + ".txt", dev_ids_path, vocab_path)
+
+    return (train_ids_path, dev_ids_path, vocab_path)
+
+
+def read_data(tokenized_dialog_path_en, tokenized_dialog_path_de, max_size=None):
+    """Read data from source file and put into buckets.
+        Args:
+    source_path: path to the files with token-ids.
+    max_size: maximum number of lines to read, all other will be ignored;
+      if 0 or None, data files will be read completely (no limit).
+
+    Returns:
+    data_set: a list of length len(_buckets); data_set[n] contains a list of
+      (source, target) pairs read from the provided data files that fit
+      into the n-th bucket, i.e., such that len(source) < _buckets[n][0] and
+      len(target) < _buckets[n][1]; source and target are lists of token-ids.
+    """
+    data_set = [[] for _ in BUCKETS]
+
+    with gfile.GFile(tokenized_dialog_path_en, mode="rb") as f_en,\
+            gfile.GFile(tokenized_dialog_path_de, mode="rb") as f_de:
+        source, target = f_en.readline(), f_de.readline()
+        counter = 0
+        while source and target and (not max_size or counter < max_size):
+            counter += 1
+            if counter % 100000 == 0:
+                print("  reading data line %d" % counter)
+                sys.stdout.flush()
+
+        source_ids = [int(x) for x in source.split()]
+        target_ids = [int(x) for x in target.split()]
+        target_ids.append(EOS_ID)
+
+        for bucket_id, (source_size, target_size) in enumerate(BUCKETS):
+            if len(source_ids) < source_size and len(target_ids) < target_size:
+                data_set[bucket_id].append([source_ids, target_ids])
+                break
+        source, target = f_en.readline(), f_de.readline()
+    return data_set
 
 
 def prepare_encode_decode_data(source_path, source_name, save_path, label,

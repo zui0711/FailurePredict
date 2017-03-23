@@ -4,7 +4,7 @@ import tensorflow as tf
 
 from configs.config import TEST_DATASET_PATH, FLAGS
 from lib import data_utils
-from lib.seq2seq_model_utils import create_model
+from models.seq2seq import create_model
 
 
 def predict():

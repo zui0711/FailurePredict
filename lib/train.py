@@ -9,8 +9,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import tensorflow as tf
 
-from models.seq2seq import Seq2SeqModel
-from configs.config import FLAGS, BUCKETS
+from models.seq2seq import create_model
+from configs.data_config import FLAGS, BUCKETS
 from lib.data_utils import read_data
 from lib import data_utils
 
@@ -23,19 +23,7 @@ def train():
 
         # Create model.
         print("Creating %d layers of %d units." % (FLAGS.num_layers, FLAGS.size))
-        #model = create_model(sess, forward_only=False)
-        model = Seq2SeqModel(source_vocab_size=FLAGS.vocab_size,
-        target_vocab_size=FLAGS.vocab_size,
-        buckets=BUCKETS,
-        size=FLAGS.size,
-        embedding_size=FLAGS.embedding_size,
-        num_layers=FLAGS.num_layers,
-        max_gradient_norm=FLAGS.max_gradient_norm,
-        batch_size=FLAGS.batch_size,
-        learning_rate=FLAGS.learning_rate,
-        learning_rate_decay_factor=FLAGS.learning_rate_decay_factor,
-        use_lstm=True,
-        forward_only=forward_only).create_model(sess, FLAGS)
+        model = create_model(sess, forward_only=False)
 
         # Read data into buckets and compute their sizes.
         print ("Reading development and training data (limit: %d)." % FLAGS.max_train_data_size)
@@ -102,33 +90,3 @@ def train():
                     print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))
 
                 sys.stdout.flush()
-
-
-
-def create_model(session, forward_only):
-    """Create translation model and initialize or load parameters in session."""
-    model = Seq2SeqModel(
-        source_vocab_size=FLAGS.vocab_size,
-        target_vocab_size=FLAGS.vocab_size,
-        buckets=BUCKETS,
-        size=FLAGS.size,
-        embedding_size=FLAGS.embedding_size,
-        num_layers=FLAGS.num_layers,
-        max_gradient_norm=FLAGS.max_gradient_norm,
-        batch_size=FLAGS.batch_size,
-        learning_rate=FLAGS.learning_rate,
-        learning_rate_decay_factor=FLAGS.learning_rate_decay_factor,
-        use_lstm=True,
-        forward_only=forward_only)
-
-    ckpt = tf.train.get_checkpoint_state(FLAGS.model_dir)
-    # if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
-    if ckpt:
-        print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
-        model.saver.restore(session, ckpt.model_checkpoint_path)
-    else:
-        print("Created model with fresh parameters.")
-        session.run(tf.initialize_all_variables())
-    return model
-
-
