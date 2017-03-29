@@ -5,6 +5,7 @@ import numpy as np
 import tensorflow as tf
 
 from tensorflow.models.rnn.translate import data_utils
+from configs.data_config import *
 
 class Seq2SeqModel(object):
     """Sequence-to-sequence model with attention and for multiple buckets.
@@ -21,7 +22,7 @@ class Seq2SeqModel(object):
       http://arxiv.org/abs/1412.2007
     """
 
-    def __init__(self, source_vocab_size, target_vocab_size, buckets, size,
+    def __init__(self, source_vocab_size, target_vocab_size, buckets, hidden_size,
                  embedding_size, num_layers, max_gradient_norm, batch_size,
                  learning_rate, learning_rate_decay_factor, use_lstm=False,
                  forward_only=False):
@@ -36,9 +37,9 @@ class Seq2SeqModel(object):
         self.global_step = tf.Variable(0, trainable=False)
 
         # Create the internal multi-layer cell for our RNN.
-        single_cell = tf.nn.rnn_cell.GRUCell(size)
+        single_cell = tf.nn.rnn_cell.GRUCell(hidden_size)
         if use_lstm:
-            single_cell = tf.nn.rnn_cell.BasicLSTMCell(size)
+            single_cell = tf.nn.rnn_cell.BasicLSTMCell(hidden_size)
         cell = single_cell
         if num_layers > 1:
             cell = tf.nn.rnn_cell.MultiRNNCell([single_cell] * num_layers)
@@ -88,7 +89,7 @@ class Seq2SeqModel(object):
                 self.updates.append(opt.apply_gradients(
                     zip(clipped_gradients, params), global_step=self.global_step))
 
-        self.saver = tf.train.Saver(tf.global_variables())
+        self.saver = tf.train.Saver(tf.all_variables())
 
 
     def step(self, session, encoder_inputs, decoder_inputs, target_weights,
@@ -153,7 +154,7 @@ class Seq2SeqModel(object):
             return None, outputs[0], outputs[1:]  # No gradient norm, loss, outputs.
 
 
-    def get_batch(self, data, bucket_id):
+    def get_batch(self, data, bucket_id, model):
         """Get a random batch of data from the specified bucket, prepare for step.
 
         To feed data in step(..) it must be a list of batch-major vectors, while
@@ -176,7 +177,10 @@ class Seq2SeqModel(object):
         # pad them if needed, reverse encoder inputs and add GO to decoder.
         for _ in xrange(self.batch_size):
             #encoder_input, decoder_input = random.choice(data[bucket_id])
-            encoder_input, decoder_input = data[bucket_id][_]
+            if model == "train":
+                encoder_input, decoder_input = random.choice(data[bucket_id])
+            else:
+                encoder_input, decoder_input = data[_]
 
             # Encoder inputs are padded and then reversed.
             encoder_pad = [data_utils.PAD_ID] * (encoder_size - len(encoder_input))
@@ -213,45 +217,26 @@ class Seq2SeqModel(object):
                     batch_weight[batch_idx] = 0.0
             batch_weights.append(batch_weight)
         return batch_encoder_inputs, batch_decoder_inputs, batch_weights
+    #
+    #
+    # def create_model(self, session, FLAGS):
+    #                  # source_vocab_size, target_vocab_size, buckets, size, embedding_size,
+    #                  # num_layers, max_gradient_norm, batch_size, learning_rate,
+    #                  # learning_rate_decay_factor, use_lstm=True, forward_only=False):
+    #
+    #     # model = Seq2SeqModel(source_vocab_size, target_vocab_size, buckets, size, embedding_size,
+    #     #                      num_layers, max_gradient_norm, batch_size, learning_rate,
+    #     #                      learning_rate_decay_factor, use_lstm, forward_only)
+    #
+    #     ckpt = tf.train.get_checkpoint_state(FLAGS.model_dir)
+    #     # if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
+    #     if ckpt:
+    #         print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
+    #         self.saver.restore(session, ckpt.model_checkpoint_path)
+    #     else:
+    #         print("Created model with fresh parameters.")
+    #         session.run(tf.initialize_all_variables())
 
-
-    def create_model(self, session, FLAGS):
-                     # source_vocab_size, target_vocab_size, buckets, size, embedding_size,
-                     # num_layers, max_gradient_norm, batch_size, learning_rate,
-                     # learning_rate_decay_factor, use_lstm=True, forward_only=False):
-
-        # model = Seq2SeqModel(source_vocab_size, target_vocab_size, buckets, size, embedding_size,
-        #                      num_layers, max_gradient_norm, batch_size, learning_rate,
-        #                      learning_rate_decay_factor, use_lstm, forward_only)
-
-        ckpt = tf.train.get_checkpoint_state(FLAGS.model_dir)
-        # if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
-        if ckpt:
-            print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
-            self.saver.restore(session, ckpt.model_checkpoint_path)
-        else:
-            print("Created model with fresh parameters.")
-            session.run(tf.initialize_all_variables())
-
-
-def create_model(session, FLAGS,
-                 source_vocab_size, target_vocab_size, buckets, size, embedding_size,
-                 num_layers, max_gradient_norm, batch_size, learning_rate,
-                 learning_rate_decay_factor, use_lstm=True, forward_only=False):
-
-    model = Seq2SeqModel(source_vocab_size, target_vocab_size, buckets, size, embedding_size,
-                         num_layers, max_gradient_norm, batch_size, learning_rate,
-                         learning_rate_decay_factor, use_lstm, forward_only)
-
-    ckpt = tf.train.get_checkpoint_state(FLAGS.model_dir)
-    # if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
-    if ckpt:
-        print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
-        model.saver.restore(session, ckpt.model_checkpoint_path)
-    else:
-        print("Created model with fresh parameters.")
-        session.run(tf.initialize_all_variables())
-    return
 
 
 def create_model(session, forward_only):
@@ -260,7 +245,8 @@ def create_model(session, forward_only):
         source_vocab_size=FLAGS.vocab_size,
         target_vocab_size=FLAGS.vocab_size,
         buckets=BUCKETS,
-        size=FLAGS.size,
+        hidden_size=FLAGS.hidden_size,
+        embedding_size=FLAGS.embedding_size,
         num_layers=FLAGS.num_layers,
         max_gradient_norm=FLAGS.max_gradient_norm,
         batch_size=FLAGS.batch_size,

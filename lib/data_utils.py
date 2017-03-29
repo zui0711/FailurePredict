@@ -3,6 +3,7 @@
 import os
 import re
 import sys
+import random
 
 from os.path import join as pjoin
 from configs.data_config import *
@@ -32,8 +33,8 @@ def basic_tokenizer(sentence):
     return [w for w in words if w]
 
 
-def create_vocabulary(vocabulary_path, data_path, max_vocabulary_size,
-                      tokenizer=None, normalize_digits=True):
+def create_vocabulary(vocabulary_path, data_path_list,
+                      max_vocabulary_size, tokenizer=None, normalize_digits=True):
 
     """Create vocabulary file (if it does not exist yet) from data file.
 
@@ -52,27 +53,33 @@ def create_vocabulary(vocabulary_path, data_path, max_vocabulary_size,
       normalize_digits: Boolean; if true, all digits are replaced by 0s.
     """
     if not gfile.Exists(vocabulary_path):
-        print("Creating vocabulary %s from data %s" % (vocabulary_path, data_path))
+        print("Creating vocabulary %s from data " % (vocabulary_path), data_path_list)
         vocab = {}
-        with gfile.GFile(data_path, mode="r") as f:
-            counter = 0
-            for line in f:
-                counter += 1
-                if counter % 100000 == 0:
-                    print("  processing line %d" % counter)
-                tokens = tokenizer(line) if tokenizer else basic_tokenizer(line)
-                for w in tokens:
-                    word = re.sub(_DIGIT_RE, "0", w) if normalize_digits else w
-                    if word in vocab:
-                        vocab[word] += 1
-                    else:
-                        vocab[word] = 1
-            vocab_list = _START_VOCAB + sorted(vocab, key=vocab.get, reverse=True)
-            if len(vocab_list) > max_vocabulary_size:
-                vocab_list = vocab_list[:max_vocabulary_size]
-            with gfile.GFile(vocabulary_path, mode="w") as vocab_file:
-                for w in vocab_list:
-                    vocab_file.write(w + "\n")
+        counter = 0
+        for data_path in data_path_list:
+            with gfile.GFile(data_path, mode="r") as f:
+                for line in f:
+                    counter += 1
+                    if counter % 100000 == 0:
+                        print("  processing line %d" % counter)
+                    tokens = tokenizer(line) if tokenizer else basic_tokenizer(line)
+                    for w in tokens:
+                        word = re.sub(_DIGIT_RE, "0", w) if normalize_digits else w
+                        if word in vocab:
+                            vocab[word] += 1
+                        else:
+                            vocab[word] = 1
+        #
+        # for v in vocab:
+        #     print(v, vocab[v], "\n")
+
+        vocab_list = _START_VOCAB + sorted(vocab, key=vocab.get, reverse=True)
+
+        if len(vocab_list) > max_vocabulary_size:
+            vocab_list = vocab_list[:max_vocabulary_size]
+        with gfile.GFile(vocabulary_path, mode="w") as vocab_file:
+            for w in vocab_list:
+                vocab_file.write(w + "\n")
 
 
 def initialize_vocabulary(vocabulary_path):
@@ -152,18 +159,19 @@ def data_to_token_ids(data_path, target_path, vocabulary_path,
     if None, basic_tokenizer will be used.
     normalize_digits: Boolean; if true, all digits are replaced by 0s.
     """
-    if not gfile.Exists(target_path):
-        print("Tokenizing data in %s" % data_path)
-        vocab, _ = initialize_vocabulary(vocabulary_path)
-        with gfile.GFile(data_path, mode="r") as data_file:
-            with gfile.GFile(target_path, mode="w") as tokens_file:
-                counter = 0
-                for line in data_file:
-                    counter += 1
-                    if counter % 100000 == 0:
-                        print("  tokenizing line %d" % counter)
-                    token_ids = sentence_to_token_ids(line, vocab, tokenizer, normalize_digits)
-                    tokens_file.write(" ".join([str(tok) for tok in token_ids]) + "\n")
+    for i, ff in enumerate(data_path):
+        if not gfile.Exists(target_path[i]):
+            print("Tokenizing data in %s" % ff)
+            vocab, _ = initialize_vocabulary(vocabulary_path)
+            with gfile.GFile(ff, mode="r") as data_file:
+                with gfile.GFile(target_path[i], mode="w") as tokens_file:
+                    counter = 0
+                    for line in data_file:
+                        counter += 1
+                        if counter % 100000 == 0:
+                            print("  tokenizing line %d" % counter)
+                        token_ids = sentence_to_token_ids(line, vocab, tokenizer, normalize_digits)
+                        tokens_file.write(" ".join([str(tok) for tok in token_ids]) + "\n")
 
 
 
@@ -181,25 +189,28 @@ def prepare_dialog_data(data_dir, vocabulary_size):
       (3) path to the chat vocabulary file
     """
     # Get dialog data to the specified directory.
-    train_path = pjoin(data_dir, "train")
-    dev_path = pjoin(data_dir, "test")
+    train_path = [pjoin(data_dir, "train", "encode"), pjoin(data_dir, "train", "decode")]
+    test_path = [pjoin(data_dir, "test", "encode"), pjoin(data_dir, "test", "decode")]
+
+    train_path_in = [t + ".txt" for t in train_path]
+    test_path_in = [t + ".txt" for t in test_path]
 
     # Create vocabularies of the appropriate sizes.
-    vocab_path = os.path.join(data_dir, "vocab%d.txt" % vocabulary_size)
-    create_vocabulary(vocab_path, train_path + ".txt", vocabulary_size)
+    vocab_path = pjoin(data_dir, "vocab%d.txt" % vocabulary_size)
+    create_vocabulary(vocab_path, train_path_in + test_path_in, vocabulary_size)
 
     # Create token ids for the training data.
-    train_ids_path = train_path + (".ids%d.txt" % vocabulary_size)
-    data_to_token_ids(train_path + ".txt", train_ids_path, vocab_path)
+    train_ids_path = [t + (".ids%d.txt" % vocabulary_size) for t in train_path]
+    data_to_token_ids(train_path_in, train_ids_path, vocab_path)
 
     # Create token ids for the development data.
-    dev_ids_path = dev_path + (".ids%d.txt" % vocabulary_size)
-    data_to_token_ids(dev_path + ".txt", dev_ids_path, vocab_path)
+    test_ids_path = [t + (".ids%d.txt" % vocabulary_size) for t in test_path]
+    data_to_token_ids(test_path_in, test_ids_path, vocab_path)
 
-    return (train_ids_path, dev_ids_path, vocab_path)
+    return (train_ids_path, test_ids_path, vocab_path)
 
 
-def read_data(tokenized_dialog_path_en, tokenized_dialog_path_de, max_size=None):
+def read_data(tokenized_dialog_path, max_size=None):
     """Read data from source file and put into buckets.
         Args:
     source_path: path to the files with token-ids.
@@ -214,8 +225,8 @@ def read_data(tokenized_dialog_path_en, tokenized_dialog_path_de, max_size=None)
     """
     data_set = [[] for _ in BUCKETS]
 
-    with gfile.GFile(tokenized_dialog_path_en, mode="rb") as f_en,\
-            gfile.GFile(tokenized_dialog_path_de, mode="rb") as f_de:
+    with gfile.GFile(tokenized_dialog_path[0], mode="rb") as f_en,\
+            gfile.GFile(tokenized_dialog_path[1], mode="rb") as f_de:
         source, target = f_en.readline(), f_de.readline()
         counter = 0
         while source and target and (not max_size or counter < max_size):
@@ -224,15 +235,15 @@ def read_data(tokenized_dialog_path_en, tokenized_dialog_path_de, max_size=None)
                 print("  reading data line %d" % counter)
                 sys.stdout.flush()
 
-        source_ids = [int(x) for x in source.split()]
-        target_ids = [int(x) for x in target.split()]
-        target_ids.append(EOS_ID)
+            source_ids = [int(x) for x in source.split()]
+            target_ids = [int(x) for x in target.split()]
+            target_ids.append(EOS_ID)
 
-        for bucket_id, (source_size, target_size) in enumerate(BUCKETS):
-            if len(source_ids) < source_size and len(target_ids) < target_size:
-                data_set[bucket_id].append([source_ids, target_ids])
-                break
-        source, target = f_en.readline(), f_de.readline()
+            for bucket_id, (source_size, target_size) in enumerate(BUCKETS):
+                if len(source_ids) < source_size and len(target_ids) < target_size:
+                    data_set[bucket_id].append([source_ids, target_ids])
+                    break
+            source, target = f_en.readline(), f_de.readline()
     return data_set
 
 
@@ -263,7 +274,11 @@ def prepare_encode_decode_data(source_path, source_name, save_path, label,
     if_err = []
     count = 0
     this_save_path = pjoin(save_path, "_".join([str(encode_decode_window), str(encode_decode_gap), str(encode_decode_step)]))
+    gfile.MakeDirs(pjoin(this_save_path, "train"))
+    gfile.MakeDirs(pjoin(this_save_path, "test"))
     print("this_save_path = ", this_save_path)
+    f_en = gfile.GFile(pjoin(this_save_path, "encode.txt"), mode="wb")
+    f_de = gfile.GFile(pjoin(this_save_path, "decode.txt"), mode="wb")
     for num in range(1, len(gfile.ListDirectory(pjoin(save_path, "error")))):
         with gfile.GFile(pjoin(save_path, "normal", str(num)+".txt"), mode="rb") as normal_f, \
              gfile.GFile(pjoin(save_path, "error", str(num)+".txt"), mode="rb") as error_f:
@@ -271,7 +286,7 @@ def prepare_encode_decode_data(source_path, source_name, save_path, label,
             error_c = error_f.readlines()
             contxt = normal_c + error_c
 
-            print("len(contxt) = %d"%len(contxt), "len(normal_c) = %d"%len(normal_c), "len(error_c) = %d"%len(error_c))
+            # print("len(contxt) = %d"%len(contxt), "len(normal_c) = %d"%len(normal_c), "len(error_c) = %d"%len(error_c))
             encode_s = 0
             encode_e = encode_s + encode_decode_window
 
@@ -279,23 +294,28 @@ def prepare_encode_decode_data(source_path, source_name, save_path, label,
             decode_e = decode_s + encode_decode_window
 
             while (decode_e < len(normal_c)):
-                f = pjoin(this_save_path, "encode")
-                if not gfile.Exists(f):
-                    gfile.MakeDirs(f)
-                with gfile.GFile(pjoin(f, str(count) + ".txt"), mode="wb") as inf:
-                    for line in contxt[encode_s: encode_e]:
+                # f = pjoin(this_save_path, "encode")
+                # if not gfile.Exists(f):
+                #     gfile.MakeDirs(f)
+                # with gfile.GFile(pjoin(f, str(count) + ".txt"), mode="wb") as inf:
+                # with gfile.GFile(pjoin(this_save_path, "encode.txt"), mode="wb") as inf:
+                this_line = " ".join([s.strip() for s in contxt[encode_s: encode_e]])
+                f_en.write(this_line + "\n")
+                    # for line in contxt[encode_s: encode_e]:
                         # inf.write(line.strip()+" SEN_END\n")
-                        inf.write(line.strip() + "\n")
-                f = pjoin(this_save_path, "decode")
-                if not gfile.Exists(f):
-                    gfile.MakeDirs(f)
-                with gfile.GFile(pjoin(f, str(count) + ".txt"), mode="wb") as outf:
-                    for line in contxt[decode_s: decode_e]:
+                        # inf.write(line.strip() + "\n")
+                # f = pjoin(this_save_path, "decode")
+                # if not gfile.Exists(f):
+                #     gfile.MakeDirs(f)
+                # with gfile.GFile(pjoin(f, str(count) + ".txt"), mode="wb") as outf:
+                #     for line in contxt[decode_s: decode_e]:
                         # outf.write(line.strip()+" SEN_END\n")
-                        outf.write(line.strip() + "\n")
+                        # outf.write(line.strip() + "\n")
+                this_line = " ".join([s.strip() for s in contxt[decode_s: decode_e]])
+                f_de.write(this_line + "\n")
 
                 if_err.append("Normal")
-                count += 1
+                # count += 1
                 # update_bound(encode_s, encode_e, decode_s, decode_e)
                 encode_s += encode_decode_step
                 encode_e = encode_s + encode_decode_window
@@ -303,24 +323,28 @@ def prepare_encode_decode_data(source_path, source_name, save_path, label,
                 decode_s = encode_e + encode_decode_gap
                 decode_e = decode_s + encode_decode_window
 
-            while (encode_e < len(normal_c)):
+            while (encode_e < len(normal_c) and decode_e < len(contxt)):
                 # print(i, encode_s)
-
-                with gfile.GFile(pjoin(this_save_path, "encode", str(count) + ".txt"), mode="wb") as inf:
-                    for line in contxt[encode_s: encode_e]:
-                        inf.write(line)
-                with gfile.GFile(pjoin(this_save_path, "decode", str(count) + ".txt"), mode="wb") as outf:
-                    for line in contxt[decode_s: decode_e]:
-                        arr = line.split()
-                        write = True
-                        for word in ERRORNAME:
-                            if word in arr:
-                                # print(line, "ERRORNAME")
-                                write = False
-                                break
-                        if write:
-                            # outf.write(line.strip()+" SEN_END\n")
-                            outf.write(line.strip() + "\n")
+                this_line = " ".join([s.strip() for s in contxt[encode_s: encode_e]])
+                f_en.write(this_line + "\n")
+                # with gfile.GFile(pjoin(this_save_path, "encode", str(count) + ".txt"), mode="wb") as inf:
+                #     for line in contxt[encode_s: encode_e]:
+                #         inf.write(line)
+                # with gfile.GFile(pjoin(this_save_path, "decode", str(count) + ".txt"), mode="wb") as outf:
+                this_line = ""
+                for line in contxt[decode_s: decode_e]:
+                    arr = line.split()
+                    write = True
+                    for word in ERRORNAME:
+                        if word in arr:
+                            # print(line, "ERRORNAME")
+                            write = False
+                            break
+                    if write:
+                        this_line = " ".join([this_line, line.strip()])
+                f_de.write(this_line + "\n")
+                        # outf.write(line.strip()+" SEN_END\n")
+                        # outf.write(line.strip() + "\n")
 
                 if_err.append("Error")
                 count += 1
@@ -393,5 +417,45 @@ def cut_data(source_path, source_name, save_path):
         with gfile.GFile(pjoin(save_path, "recovery", str(i) + ".txt"), mode="wb") as f:
             for line in contxt[cut_mid[i]:cut_end[i + 1]]:
                 f.write(line)
+
+
+def set_train_test(path, label, encode_decode_window, encode_decode_gap, encode_decode_step):
+    path = pjoin(path, label, "_".join([str(encode_decode_window), str(encode_decode_gap), str(encode_decode_step)]))
+    # with gfile.GFile(pjoin(path, "encode.txt"), mode="rb") as f_en, \
+    #         gfile.GFile(pjoin(path, "encode.txt"), mode="rb") as f_de, \
+    #         gfile.GFile(pjoin(path, "labels.txt"), mode="rb") as f_l:
+    print("set train test...")
+    with gfile.GFile(pjoin(path, "encode.txt"), mode="rb") as f_en, \
+            gfile.GFile(pjoin(path, "encode.txt"), mode="rb") as f_de, \
+            gfile.GFile(pjoin(path, "labels.txt"), mode="rb") as f_l:
+
+        contxt_en = f_en.readlines()
+        contxt_de = f_de.readlines()
+        contxt_l = f_l.readlines()
+        total_len = len(contxt_l)
+        indexs = range(total_len)
+        if not gfile.Exists(pjoin(path, "train")):
+            gfile.MakeDirs((pjoin(path, "train")))
+        if not gfile.Exists(pjoin(path, "test")):
+            gfile.MakeDirs((pjoin(path, "test")))
+
+        random.shuffle(indexs)
+
+        with gfile.GFile(pjoin(path, "train", "encode.txt"), mode="wb") as f_t_en, \
+                gfile.GFile(pjoin(path, "train", "decode.txt"), mode="wb") as f_t_de, \
+                gfile.GFile(pjoin(path, "train", "labels.txt"), mode="wb") as f_t_l:
+            for i in range(total_len / 10 * 7):
+                f_t_en.write(contxt_en[indexs[i]].strip() + "\n")
+                f_t_de.write(contxt_de[indexs[i]].strip() + "\n")
+                f_t_l.write(contxt_l[indexs[i]].strip() + "\n")
+
+        with gfile.GFile(pjoin(path, "test", "encode.txt"), mode="wb") as f_t_en, \
+                gfile.GFile(pjoin(path, "test", "decode.txt"), mode="wb") as f_t_de, \
+                gfile.GFile(pjoin(path, "test", "labels.txt"), mode="wb") as f_t_l:
+            for i in range(total_len / 10 * 7, total_len):
+                f_t_en.write(contxt_en[indexs[i]].strip() + "\n")
+                f_t_de.write(contxt_de[indexs[i]].strip() + "\n")
+                f_t_l.write(contxt_l[indexs[i]].strip() + "\n")
+
 
 

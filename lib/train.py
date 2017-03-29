@@ -16,13 +16,14 @@ from lib import data_utils
 
 
 def train():
+    sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
     print("Preparing dialog data in %s" % FLAGS.data_dir)
     train_data, dev_data, _ = data_utils.prepare_dialog_data(FLAGS.data_dir, FLAGS.vocab_size)
 
     with tf.Session() as sess:
 
         # Create model.
-        print("Creating %d layers of %d units." % (FLAGS.num_layers, FLAGS.size))
+        print("Creating %d layers of %d units." % (FLAGS.num_layers, FLAGS.hidden_size))
         model = create_model(sess, forward_only=False)
 
         # Read data into buckets and compute their sizes.
@@ -43,7 +44,8 @@ def train():
         current_step = 0
         previous_losses = []
 
-        for epoch in xrange(800):
+        print("start train...")
+        for epoch in xrange(6000):
             # Choose a bucket according to data distribution. We pick a random number
             # in [0, 1] and use the corresponding interval in train_buckets_scale.
             random_number_01 = np.random.random_sample()
@@ -53,7 +55,7 @@ def train():
             # Get a batch and make a step.
             start_time = time.time()
             encoder_inputs, decoder_inputs, target_weights = model.get_batch(
-                train_set, bucket_id)
+                train_set, bucket_id, "train")
 
             _, step_loss, _ = model.step(sess, encoder_inputs, decoder_inputs,
                                        target_weights, bucket_id, forward_only=False)
@@ -83,7 +85,7 @@ def train():
 
                 # Run evals on development set and print their perplexity.
                 for bucket_id in xrange(len(BUCKETS)):
-                    encoder_inputs, decoder_inputs, target_weights = model.get_batch(dev_set, bucket_id)
+                    encoder_inputs, decoder_inputs, target_weights = model.get_batch(dev_set, bucket_id, "train")
                     _, eval_loss, _ = model.step(sess, encoder_inputs, decoder_inputs, target_weights, bucket_id, True)
 
                     eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
