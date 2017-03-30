@@ -20,7 +20,7 @@ encode_decode_step = 10
 
 LSTM_vocab_size = 164
 LSTM_max_len = 120
-LSTM_embedding_size = 128
+LSTM_embedding_size = 200
 LSTM_batch_size = 128
 
 prepare_data_source_path = "/media/workserv/498ee660-1fc8-40e8-bb02-f0a626cbfe93/jwl/PycharmProjects/FailureAnalysis/data/network_diagnosis_data"

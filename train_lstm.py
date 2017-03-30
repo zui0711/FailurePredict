@@ -42,10 +42,10 @@ def load_data(vocab_size):
         random.shuffle(idxs)
         for num in idxs:
             if num < 16000:
-                X_train.append([int(n) for n in nor[num].strip().split()])
+                X_train.append([int(n)-2 for n in nor[num].strip().split()])
                 y_train.append(0)
             else:
-                X_train.append([int(n) for n in err[num-16000].strip().split()])
+                X_train.append([int(n)-2 for n in err[num-16000].strip().split()])
                 y_train.append(1)
 
     # with open(pjoin(SAVE_DATA_DIR, "train", "labels.txt"), "rb") as f:
@@ -94,10 +94,10 @@ def load_data(vocab_size):
         random.shuffle(idxs)
         for num in idxs:
             if num < 4000:
-                X_test.append([int(n) for n in nor[num].strip().split()])
+                X_test.append([int(n)-2 for n in nor[num].strip().split()])
                 y_test.append(0)
             else:
-                X_test.append([int(n) for n in err[num-4000].strip().split()])
+                X_test.append([int(n)-2 for n in err[num-4000].strip().split()])
                 y_test.append(1)
 
         # for i in xrange(4000):
@@ -113,6 +113,23 @@ def load_data(vocab_size):
 def train():
     print(SAVE_DATA_DIR)
     (X_train, y_train), (X_test, y_test) = load_data(LSTM_vocab_size)
+    xx = {}
+
+    for line in X_train:
+        for x in line:
+            if x in xx:
+                xx[x] += 1
+            else:
+                xx[x] = 1
+    for line in X_test:
+        for x in line:
+            if x in xx:
+                xx[x] += 1
+            else:
+                xx[x] = 1
+    print xx
+
+
     print(len(X_train), 'train sequences')
     print(len(X_test), 'test sequences')
 
