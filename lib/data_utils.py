@@ -457,5 +457,5 @@ def set_train_test(path, label, encode_decode_window, encode_decode_gap, encode_
                 f_t_de.write(contxt_de[indexs[i]].strip() + "\n")
                 f_t_l.write(contxt_l[indexs[i]].strip() + "\n")
 
-
+# def sampled_
 

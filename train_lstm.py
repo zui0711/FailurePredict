@@ -5,6 +5,7 @@ np.random.seed(1337)
 
 from keras.preprocessing import sequence
 from models.LSTM import *
+from gensim.models import Word2Vec
 
 def load_data(vocab_size):
     X_train = []
@@ -20,6 +21,8 @@ def load_data(vocab_size):
             open(pjoin(SAVE_DATA_DIR, "train", "labels.txt"), "rb") as fl:
         con = f.readlines()
         conl = fl.readlines()
+        f.close()
+        fl.close()
 
         nor = []
         err = []
@@ -32,21 +35,12 @@ def load_data(vocab_size):
                 err.append(line)
 
         print("train: nor -> %d, err -> %d"%(len(nor), len(err)))
-        # for i in xrange(16000):
-        #     X_train.append([int(n) for n in nor[i].strip().split()])
-        #     y_train.append(0)
-        # for i in xrange(16000):
-        #     X_train.append([int(n) for n in err[i].strip().split()])
-        #     y_train.append(1)
-        idxs = range(32000)
-        random.shuffle(idxs)
-        for num in idxs:
-            if num < 16000:
-                X_train.append([int(n)-2 for n in nor[num].strip().split()])
-                y_train.append(0)
-            else:
-                X_train.append([int(n)-2 for n in err[num-16000].strip().split()])
-                y_train.append(1)
+        for i in xrange(16000):
+            X_train.append([int(n) for n in nor[i].strip().split()])
+            y_train.append(0)
+        for i in xrange(16000):
+            X_train.append([int(n) for n in err[i].strip().split()])
+            y_train.append(1)
 
     # with open(pjoin(SAVE_DATA_DIR, "train", "labels.txt"), "rb") as f:
     #     con = f.readlines()
@@ -78,6 +72,8 @@ def load_data(vocab_size):
             open(pjoin(SAVE_DATA_DIR, "test", "labels.txt"), "rb") as fl:
         con = f.readlines()
         conl = fl.readlines()
+        f.close()
+        fl.close()
 
         nor = []
         err = []
@@ -90,28 +86,19 @@ def load_data(vocab_size):
                 err.append(line)
         print("test: nor -> %d, err -> %d"%(len(nor), len(err)))
 
-        idxs = range(8000)
-        random.shuffle(idxs)
-        for num in idxs:
-            if num < 4000:
-                X_test.append([int(n)-2 for n in nor[num].strip().split()])
-                y_test.append(0)
-            else:
-                X_test.append([int(n)-2 for n in err[num-4000].strip().split()])
-                y_test.append(1)
-
-        # for i in xrange(4000):
-        #     X_test.append([int(n) for n in nor[i].strip().split()])
-        #     y_test.append(0)
-        # for i in xrange(4000):
-        #     X_test.append([int(n) for n in err[i].strip().split()])
-        #     y_test.append(1)
+        for i in xrange(4000):
+            X_test.append([int(n) for n in nor[i].strip().split()])
+            y_test.append(0)
+        for i in xrange(4000):
+            X_test.append([int(n) for n in err[i].strip().split()])
+            y_test.append(1)
 
     return (X_train, y_train), (X_test, y_test)
 
 
 def train():
     print(SAVE_DATA_DIR)
+    w2v = Word2Vec.load(pjoin(SAVE_DATA_DIR, "word_emb_size100wind5count10iter5"))
     (X_train, y_train), (X_test, y_test) = load_data(LSTM_vocab_size)
     xx = {}
 
