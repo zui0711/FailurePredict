@@ -248,7 +248,8 @@ def read_data(tokenized_dialog_path, max_size=None):
 
 
 def prepare_encode_decode_data(source_path, source_name, save_path, label,
-                               encode_decode_window, encode_decode_gap, encode_decode_step):
+                               encode_decode_window, encode_decode_gap, encode_decode_step,
+                               if_sample=False, sample_number=0):
     """
     为预测模型准备<编码, 解码, 标签>样本
     Args:
@@ -259,6 +260,8 @@ def prepare_encode_decode_data(source_path, source_name, save_path, label,
         encode_decode_window: 编解码对窗口大小
         encode_decode_gap: 编解码对间距
         encode_decode_step: 编解码对窗口每次滑动步长
+        if_sample: 是否采样取
+        sample_number： 采样时多少行取一次
 
     Returns:
 
@@ -294,29 +297,20 @@ def prepare_encode_decode_data(source_path, source_name, save_path, label,
             decode_e = decode_s + encode_decode_window
 
             while (decode_e < len(normal_c)):
-                # f = pjoin(this_save_path, "encode")
-                # if not gfile.Exists(f):
-                #     gfile.MakeDirs(f)
-                # with gfile.GFile(pjoin(f, str(count) + ".txt"), mode="wb") as inf:
-                # with gfile.GFile(pjoin(this_save_path, "encode.txt"), mode="wb") as inf:
-                this_line = " ".join([s.strip() for s in contxt[encode_s: encode_e]])
-                f_en.write(this_line + "\n")
-                    # for line in contxt[encode_s: encode_e]:
-                        # inf.write(line.strip()+" SEN_END\n")
-                        # inf.write(line.strip() + "\n")
-                # f = pjoin(this_save_path, "decode")
-                # if not gfile.Exists(f):
-                #     gfile.MakeDirs(f)
-                # with gfile.GFile(pjoin(f, str(count) + ".txt"), mode="wb") as outf:
-                #     for line in contxt[decode_s: decode_e]:
-                        # outf.write(line.strip()+" SEN_END\n")
-                        # outf.write(line.strip() + "\n")
-                this_line = " ".join([s.strip() for s in contxt[decode_s: decode_e]])
-                f_de.write(this_line + "\n")
+                if not if_sample:
+                    this_line = " ".join([s.strip() for s in contxt[encode_s: encode_e]])
+                    f_en.write(this_line + "\n")
+
+                    this_line = " ".join([s.strip() for s in contxt[decode_s: decode_e]])
+                    f_de.write(this_line + "\n")
+                else:
+                    this_line = " ".join([s.strip() for s in contxt[encode_s: encode_e: sample_number]])
+                    f_en.write(this_line + "\n")
+
+                    this_line = " ".join([s.strip() for s in contxt[decode_s: decode_e: sample_number]])
+                    f_de.write(this_line + "\n")
 
                 if_err.append("Normal")
-                # count += 1
-                # update_bound(encode_s, encode_e, decode_s, decode_e)
                 encode_s += encode_decode_step
                 encode_e = encode_s + encode_decode_window
 
@@ -324,13 +318,8 @@ def prepare_encode_decode_data(source_path, source_name, save_path, label,
                 decode_e = decode_s + encode_decode_window
 
             while (encode_e < len(normal_c) and decode_e < len(contxt)):
-                # print(i, encode_s)
                 this_line = " ".join([s.strip() for s in contxt[encode_s: encode_e]])
                 f_en.write(this_line + "\n")
-                # with gfile.GFile(pjoin(this_save_path, "encode", str(count) + ".txt"), mode="wb") as inf:
-                #     for line in contxt[encode_s: encode_e]:
-                #         inf.write(line)
-                # with gfile.GFile(pjoin(this_save_path, "decode", str(count) + ".txt"), mode="wb") as outf:
                 this_line = ""
                 for line in contxt[decode_s: decode_e]:
                     arr = line.split()
