@@ -99,6 +99,15 @@ def load_data(vocab_size):
 def train():
     print(SAVE_DATA_DIR)
     w2v = Word2Vec.load(pjoin(SAVE_DATA_DIR, "word_emb_size100wind5count10iter5"))
+    embeddings_index = {}
+    for word in w2v.vocab:
+        embeddings_index[word] = w2v[word]
+    embedding_matrix = np.zeros((LSTM_vocab_size-2, LSTM_embedding_size))
+    for word, i in word_index.items():
+        embedding_vector = embeddings_index.get(word)
+        if embedding_vector is not None:
+            # words not found in embedding index will be all-zeros.
+            embedding_matrix[i] = embedding_vector
     (X_train, y_train), (X_test, y_test) = load_data(LSTM_vocab_size)
     xx = {}
 
