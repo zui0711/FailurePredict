@@ -300,13 +300,12 @@ def prepare_encode_decode_data(source_path, source_name, save_path, label,
                 if not if_sample:
                     this_line = " ".join([s.strip() for s in contxt[encode_s: encode_e]])
                     f_en.write(this_line + "\n")
-
                     this_line = " ".join([s.strip() for s in contxt[decode_s: decode_e]])
                     f_de.write(this_line + "\n")
+
                 else:
                     this_line = " ".join([s.strip() for s in contxt[encode_s: encode_e: sample_number]])
                     f_en.write(this_line + "\n")
-
                     this_line = " ".join([s.strip() for s in contxt[decode_s: decode_e: sample_number]])
                     f_de.write(this_line + "\n")
 
@@ -318,19 +317,36 @@ def prepare_encode_decode_data(source_path, source_name, save_path, label,
                 decode_e = decode_s + encode_decode_window
 
             while (encode_e < len(normal_c) and decode_e < len(contxt)):
-                this_line = " ".join([s.strip() for s in contxt[encode_s: encode_e]])
+                if not if_sample:
+                    this_line = " ".join([s.strip() for s in contxt[encode_s: encode_e]])
+                else:
+                    this_line = " ".join([s.strip() for s in contxt[encode_s: encode_e: sample_number]])
                 f_en.write(this_line + "\n")
+
                 this_line = ""
-                for line in contxt[decode_s: decode_e]:
-                    arr = line.split()
-                    write = True
-                    for word in ERRORNAME:
-                        if word in arr:
-                            # print(line, "ERRORNAME")
-                            write = False
-                            break
-                    if write:
-                        this_line = " ".join([this_line, line.strip()])
+                if not if_sample:
+                    for line in contxt[decode_s: decode_e]:
+                        arr = line.split()
+                        write = True
+                        for word in ERRORNAME:
+                            if word in arr:
+                                # print(line, "ERRORNAME")
+                                write = False
+                                break
+                        if write:
+                            this_line = " ".join([this_line, line.strip()])
+                else:
+                    for line in contxt[decode_s: decode_e: sample_number]:
+                        arr = line.split()
+                        write = True
+                        for word in ERRORNAME:
+                            if word in arr:
+                                # print(line, "ERRORNAME")
+                                write = False
+                                break
+                        if write:
+                            this_line = " ".join([this_line, line.strip()])
+
                 f_de.write(this_line + "\n")
                         # outf.write(line.strip()+" SEN_END\n")
                         # outf.write(line.strip() + "\n")
