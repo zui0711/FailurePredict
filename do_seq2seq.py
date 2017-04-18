@@ -5,11 +5,16 @@ import sys
 
 import tensorflow as tf
 
-from lib.train import train
+from lib.train_seq2seq import train
+from lib.test_seq2seq import predict
 
 
 def main(_):
-    train()
+    mode = "t"
+    if mode == "t":
+        train()
+    else:
+        predict()
 
 if __name__ == "__main__":
     tf.app.run()

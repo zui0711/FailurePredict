@@ -7,7 +7,6 @@ from keras.layers import LSTM
 # from keras.layers import Conv1D, MaxPooling1D
 
 
-
 def create_model(embedding_trainable=True, embedding_matrix=None):
     model = Sequential()
     if embedding_trainable:
