@@ -28,6 +28,7 @@ def predict():
         batch_size = 128
         model = create_model(sess, forward_only=True)
         model.batch_size = batch_size
+        # batch_size = model.batch_size
 
         vocab_path = os.path.join(FLAGS.data_dir, "vocab%d.txt" % FLAGS.vocab_size)
         vocab, rev_vocab = initialize_vocabulary(vocab_path)

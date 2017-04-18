@@ -45,7 +45,7 @@ def train():
         previous_losses = []
 
         print("start train...")
-        for epoch in xrange(6000):
+        while (True):
             # Choose a bucket according to data distribution. We pick a random number
             # in [0, 1] and use the corresponding interval in train_buckets_scale.
             random_number_01 = np.random.random_sample()
@@ -69,8 +69,8 @@ def train():
                 # Print statistics for the previous epoch.
                 perplexity = math.exp(loss) if loss < 300 else float('inf')
                 total_time = step_time * FLAGS.steps_per_checkpoint
-                print ("global step %d learning rate %.4f step-time %.2f total_time %.4f perplexity %.2f" %
-                       (model.global_step.eval(), model.learning_rate.eval(), step_time, total_time, perplexity))
+                print ("global step %d learning rate %.4f step-time %.2f total_time %.4f perplexity %.4f, loss %0.7f" %
+                       (model.global_step.eval(), model.learning_rate.eval(), step_time, total_time, perplexity, loss))
 
                 # Decrease learning rate if no improvement was seen over last 3 times.
                 if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
@@ -89,6 +89,6 @@ def train():
                     _, eval_loss, _ = model.step(sess, encoder_inputs, decoder_inputs, target_weights, bucket_id, True)
 
                     eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
-                    print("  eval: bucket %d perplexity %.2f" % (bucket_id, eval_ppx))
+                    print("  eval: bucket %d perplexity %.4f, loss %0.7f" % (bucket_id, eval_ppx, eval_loss))
 
                 sys.stdout.flush()

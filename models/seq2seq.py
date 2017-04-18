@@ -89,7 +89,7 @@ class Seq2SeqModel(object):
                 self.updates.append(opt.apply_gradients(
                     zip(clipped_gradients, params), global_step=self.global_step))
 
-        self.saver = tf.train.Saver(tf.all_variables())
+        self.saver = tf.train.Saver(tf.all_variables(), max_to_keep=1000)
 
 
     def step(self, session, encoder_inputs, decoder_inputs, target_weights,

@@ -25,6 +25,12 @@ UNK_ID = 3
 _WORD_SPLIT = re.compile("([.,!?\"':;)(])")
 _DIGIT_RE = re.compile(r"\d{3,}") # 匹配数字3次+
 
+def b_basic_tokenizer(sentence):
+    """Very very basic tokenizer: split the sentence into a list of tokens."""
+    words = [w for w in sentence.strip().split() if w]
+    return words
+
+
 def basic_tokenizer(sentence):
     """Very basic tokenizer: split the sentence into a list of tokens."""
     words = []
@@ -62,9 +68,9 @@ def create_vocabulary(vocabulary_path, data_path_list,
                     counter += 1
                     if counter % 100000 == 0:
                         print("  processing line %d" % counter)
-                    tokens = tokenizer(line) if tokenizer else basic_tokenizer(line)
-                    for w in tokens:
-                        word = re.sub(_DIGIT_RE, "0", w) if normalize_digits else w
+                    tokens = tokenizer(line) if tokenizer else b_basic_tokenizer(line)
+                    for word in tokens:
+                        # word = re.sub(_DIGIT_RE, "0", w) if normalize_digits else w
                         if word in vocab:
                             vocab[word] += 1
                         else:
@@ -197,6 +203,7 @@ def prepare_dialog_data(data_dir, vocabulary_size):
 
     # Create vocabularies of the appropriate sizes.
     vocab_path = pjoin(data_dir, "vocab%d.txt" % vocabulary_size)
+    # create_vocabulary(vocab_path, [pjoin(data_dir, "encode.txt"), pjoin(data_dir, "decode.txt")], vocabulary_size)
     create_vocabulary(vocab_path, train_path_in + test_path_in, vocabulary_size)
 
     # Create token ids for the training data.
@@ -431,7 +438,7 @@ def set_train_test(path, label, encode_decode_window, encode_decode_gap, encode_
     #         gfile.GFile(pjoin(path, "labels.txt"), mode="rb") as f_l:
     print("set train test...")
     with gfile.GFile(pjoin(path, "encode.txt"), mode="rb") as f_en, \
-            gfile.GFile(pjoin(path, "encode.txt"), mode="rb") as f_de, \
+            gfile.GFile(pjoin(path, "decode.txt"), mode="rb") as f_de, \
             gfile.GFile(pjoin(path, "labels.txt"), mode="rb") as f_l:
 
         contxt_en = f_en.readlines()
@@ -449,18 +456,18 @@ def set_train_test(path, label, encode_decode_window, encode_decode_gap, encode_
         with gfile.GFile(pjoin(path, "train", "encode.txt"), mode="wb") as f_t_en, \
                 gfile.GFile(pjoin(path, "train", "decode.txt"), mode="wb") as f_t_de, \
                 gfile.GFile(pjoin(path, "train", "labels.txt"), mode="wb") as f_t_l:
-            for i in range(total_len / 10 * 7):
-                f_t_en.write(contxt_en[indexs[i]].strip() + "\n")
-                f_t_de.write(contxt_de[indexs[i]].strip() + "\n")
-                f_t_l.write(contxt_l[indexs[i]].strip() + "\n")
+            for i in indexs[ : total_len / 10 * 7]:
+                f_t_en.write(contxt_en[i].strip() + "\n")
+                f_t_de.write(contxt_de[i].strip() + "\n")
+                f_t_l.write(contxt_l[i].strip() + "\n")
 
         with gfile.GFile(pjoin(path, "test", "encode.txt"), mode="wb") as f_t_en, \
                 gfile.GFile(pjoin(path, "test", "decode.txt"), mode="wb") as f_t_de, \
                 gfile.GFile(pjoin(path, "test", "labels.txt"), mode="wb") as f_t_l:
-            for i in range(total_len / 10 * 7, total_len):
-                f_t_en.write(contxt_en[indexs[i]].strip() + "\n")
-                f_t_de.write(contxt_de[indexs[i]].strip() + "\n")
-                f_t_l.write(contxt_l[indexs[i]].strip() + "\n")
+            for i in indexs[total_len / 10 * 7 : ]:
+                f_t_en.write(contxt_en[i].strip() + "\n")
+                f_t_de.write(contxt_de[i].strip() + "\n")
+                f_t_l.write(contxt_l[i].strip() + "\n")
 
 # def sampled_
 
