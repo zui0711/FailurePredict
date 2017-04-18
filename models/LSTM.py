@@ -3,8 +3,8 @@ from configs.data_config import *
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Embedding
 from keras.layers import LSTM
-from keras.layers import Dropout, Flatten
-from keras.layers import Conv1D, MaxPooling1D
+# from keras.layers import Dropout, Flatten
+# from keras.layers import Conv1D, MaxPooling1D
 
 
 
@@ -19,6 +19,10 @@ def create_model(embedding_trainable=True, embedding_matrix=None):
     model.add(LSTM(LSTM_embedding_size, dropout_W=0.2, dropout_U=0.2))
     model.add(Dense(1))
     model.add(Activation('sigmoid'))
+
+    model.compile(loss='binary_crossentropy',
+                  optimizer='rmsprop',
+                  metrics=['accuracy'])
     return model
 
 # def create_model():
