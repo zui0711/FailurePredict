@@ -7,7 +7,7 @@ np.random.seed(1337)
 from lib.lstm_classifcation import *
 
 
-def load_data(seq2seq_vocab_size, mode):
+def load_data(seq2seq_vocab_size, seq2seq_epoch):
     X_train = []
     y_train = []
     X_test = []
@@ -48,7 +48,7 @@ def load_data(seq2seq_vocab_size, mode):
 
     # with open(pjoin(SAVE_DATA_DIR, "test", name), "rb") as f, \
     #         open(pjoin(SAVE_DATA_DIR, "test", "labels.txt"), "rb") as fl:
-    name = "results(%d, %d).ids%d.txt_312300" % (LSTM_max_len, LSTM_max_len, seq2seq_vocab_size)
+    name = "results(%d, %d).ids%d.txt_%d" % (LSTM_max_len, LSTM_max_len, seq2seq_vocab_size, seq2seq_epoch)
     with open(pjoin(SAVE_DATA_DIR, "results", name), "rb") as f, \
             open(pjoin(SAVE_DATA_DIR, "test", "labels.txt"), "rb") as fl:
         con = f.readlines()
@@ -82,7 +82,7 @@ def load_data(seq2seq_vocab_size, mode):
     return (X_train, y_train), (X_test, y_test)
 
 
-(X_train, y_train), (X_test, y_test) = load_data(seq2seq_vocab_size)
+(X_train, y_train), (X_test, y_test) = load_data(seq2seq_vocab_size, 330300)
 if not os.path.exists(pjoin(SAVE_DATA_DIR, "lstm_model.h5")):
     train(X_train, y_train, X_test, y_test)
 else:

@@ -11,7 +11,7 @@ import tensorflow as tf
 
 from models.seq2seq import create_model
 from configs.data_config import FLAGS, BUCKETS
-from lib.data_utils import read_data
+from lib.data_utils import *
 from lib import data_utils
 
 
@@ -65,7 +65,7 @@ def train():
             current_step += 1
 
             # Once in a while, we save checkpoint, print statistics, and run evals.
-            if current_step % FLAGS.steps_per_checkpoint == 0:
+            if model.global_step % FLAGS.steps_per_checkpoint == 0:
                 # Print statistics for the previous epoch.
                 perplexity = math.exp(loss) if loss < 300 else float('inf')
                 total_time = step_time * FLAGS.steps_per_checkpoint
@@ -92,3 +92,55 @@ def train():
                     print("  eval: bucket %d perplexity %.4f, loss %0.7f" % (bucket_id, eval_ppx, eval_loss))
 
                 sys.stdout.flush()
+
+
+                if model.global_step % FLAGS.steps_per_predictpoint == 0:
+                    def _get_test_dataset(encoder_size):
+                        with open(TEST_DATASET_PATH) as test_fh:
+                            test_sentences = []
+                            for line in test_fh.readlines():
+                                sen = [int(x) for x in line.strip().split()[:encoder_size]]
+                                if sen:
+                                    test_sentences.append((sen, []))
+                        return test_sentences
+
+
+                    results_filename = 'results(%d, %d).txt_%d' % (BUCKETS[0][0], BUCKETS[0][0], model.global_step)
+                    results_filename_ids = '.'.join(['results' + str(BUCKETS[0]), "ids" + str(FLAGS.vocab_size), "txt"])
+                    results_filename_ids = "results(%d, %d).ids%d.txt_%d" % \
+                                           (LSTM_max_len, LSTM_max_len, FLAGS.vocab_size, model.global_step)
+
+                    results_path = os.path.join(FLAGS.results_dir, results_filename)
+                    results_path_ids = os.path.join(FLAGS.results_dir, results_filename_ids)
+
+                    with open(results_path, 'w') as results_f, open(results_path_ids, 'w') as results_f_ids:
+
+                        vocab_path = os.path.join(FLAGS.data_dir, "vocab%d.txt" % FLAGS.vocab_size)
+                        vocab, rev_vocab = initialize_vocabulary(vocab_path)
+
+                        encoder_size, decoder_size = model.buckets[0]
+                        test_dataset = _get_test_dataset(encoder_size)
+                        test_len = len(test_dataset)
+                        batch_num = test_len / batch_size + (0 if test_len % batch_size == 0 else 1)
+
+                        for num in xrange(batch_num - 1):
+                            this_batch = test_dataset[batch_size * num: batch_size * (num + 1)]
+                            encoder_inputs, decoder_inputs, target_weights = model.get_batch(this_batch, bucket_id, "predict")
+                            _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs, target_weights, bucket_id,
+                                                             True)
+
+                            for b in xrange(batch_size):
+                                outputs = []
+                                for en in xrange(encoder_size):
+                                    selected_token_id = int(np.argmax(output_logits[en][b]))
+
+                                    if selected_token_id == EOS_ID:
+                                        break
+                                    else:
+                                        outputs.append(selected_token_id)
+                                output_sentence = ' '.join([rev_vocab[output] for output in outputs])
+                                output_sentence_ids = ' '.join([str(output) for output in outputs])
+
+                                results_f.write(output_sentence + '\n')
+                                results_f_ids.write(output_sentence_ids + "\n")
+

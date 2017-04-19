@@ -38,6 +38,7 @@ def predict():
         test_len = len(test_dataset)
         batch_num = test_len / batch_size + (0 if test_len%batch_size == 0 else 1)
 
+        # print("predict...")
         for num in xrange(batch_num - 1):
             this_batch = test_dataset[batch_size*num: batch_size*(num+1)]
             encoder_inputs, decoder_inputs, target_weights = model.get_batch(this_batch, bucket_id, "predict")
