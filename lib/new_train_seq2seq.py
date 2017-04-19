@@ -33,6 +33,15 @@ def train():
         train_bucket_sizes = [len(train_set[b]) for b in xrange(len(BUCKETS))]
         train_total_size = float(sum(train_bucket_sizes))
 
+        def _get_test_dataset(encoder_size):
+            with open(TEST_DATASET_PATH) as test_fh:
+                test_sentences = []
+                for line in test_fh.readlines():
+                    sen = [int(x) for x in line.strip().split()[:encoder_size]]
+                    if sen:
+                        test_sentences.append((sen, []))
+            return test_sentences
+
         # A bucket scale is a list of increasing numbers from 0 to 1 that we'll use
         # to select a bucket. Length of [scale[i], scale[i+1]] is proportional to
         # the size if i-th training bucket, as used later.
