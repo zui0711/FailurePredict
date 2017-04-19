@@ -33,20 +33,25 @@ def train():
         train_bucket_sizes = [len(train_set[b]) for b in xrange(len(BUCKETS))]
         train_total_size = float(sum(train_bucket_sizes))
 
-        def _get_test_dataset(encoder_size):
-            with open(TEST_DATASET_PATH) as test_fh:
-                test_sentences = []
-                for line in test_fh.readlines():
-                    sen = [int(x) for x in line.strip().split()[:encoder_size]]
-                    if sen:
-                        test_sentences.append((sen, []))
-            return test_sentences
-
         # A bucket scale is a list of increasing numbers from 0 to 1 that we'll use
         # to select a bucket. Length of [scale[i], scale[i+1]] is proportional to
         # the size if i-th training bucket, as used later.
-        train_buckets_scale = [sum(train_bucket_sizes[:i + 1]) / train_total_size
-                               for i in xrange(len(train_bucket_sizes))]
+        train_buckets_scale = [sum(train_bucket_sizes[:i + 1]) / train_total_size for i in xrange(len(train_bucket_sizes))]
+
+
+        print("Reading predict data...")
+        encoder_size = 360
+        test_dataset = []
+        with open(TEST_DATASET_PATH) as test_fh:
+            for line in test_fh.readlines():
+                sen = [int(x) for x in line.strip().split()[:encoder_size]]
+                if sen:
+                    test_dataset.append((sen, []))
+
+        print("Reading vocab...")
+        vocab_path = pjoin(FLAGS.data_dir, "vocab%d.txt" % FLAGS.vocab_size)
+        vocab, rev_vocab = initialize_vocabulary(vocab_path)
+
 
         # This is the training loop.
         step_time, total_time, loss = 0.0, 0.0, 0.0
@@ -58,8 +63,7 @@ def train():
             # Choose a bucket according to data distribution. We pick a random number
             # in [0, 1] and use the corresponding interval in train_buckets_scale.
             random_number_01 = np.random.random_sample()
-            bucket_id = min([i for i in xrange(len(train_buckets_scale))
-                           if train_buckets_scale[i] > random_number_01])
+            bucket_id = min([i for i in xrange(len(train_buckets_scale)) if train_buckets_scale[i] > random_number_01])
 
             # Get a batch and make a step.
             start_time = time.time()
@@ -104,18 +108,9 @@ def train():
 
 
                 if model.global_step % FLAGS.steps_per_predictpoint == 0:
-                    def _get_test_dataset(encoder_size):
-                        with open(TEST_DATASET_PATH) as test_fh:
-                            test_sentences = []
-                            for line in test_fh.readlines():
-                                sen = [int(x) for x in line.strip().split()[:encoder_size]]
-                                if sen:
-                                    test_sentences.append((sen, []))
-                        return test_sentences
-
 
                     results_filename = 'results(%d, %d).txt_%d' % (BUCKETS[0][0], BUCKETS[0][0], model.global_step)
-                    results_filename_ids = '.'.join(['results' + str(BUCKETS[0]), "ids" + str(FLAGS.vocab_size), "txt"])
+                    # results_filename_ids = '.'.join(['results' + str(BUCKETS[0]), "ids" + str(FLAGS.vocab_size), "txt"])
                     results_filename_ids = "results(%d, %d).ids%d.txt_%d" % \
                                            (LSTM_max_len, LSTM_max_len, FLAGS.vocab_size, model.global_step)
 
@@ -124,11 +119,9 @@ def train():
 
                     with open(results_path, 'w') as results_f, open(results_path_ids, 'w') as results_f_ids:
 
-                        vocab_path = os.path.join(FLAGS.data_dir, "vocab%d.txt" % FLAGS.vocab_size)
-                        vocab, rev_vocab = initialize_vocabulary(vocab_path)
+                        # encoder_size, decoder_size = model.buckets[0]
 
-                        encoder_size, decoder_size = model.buckets[0]
-                        test_dataset = _get_test_dataset(encoder_size)
+                        batch_size = FLAGS.predict_batch_size
                         test_len = len(test_dataset)
                         batch_num = test_len / batch_size + (0 if test_len % batch_size == 0 else 1)
 

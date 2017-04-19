@@ -249,7 +249,7 @@ def create_model(session, forward_only):
         embedding_size=FLAGS.embedding_size,
         num_layers=FLAGS.num_layers,
         max_gradient_norm=FLAGS.max_gradient_norm,
-        batch_size=FLAGS.batch_size,
+        batch_size=FLAGS.train_batch_size,
         learning_rate=FLAGS.learning_rate,
         learning_rate_decay_factor=FLAGS.learning_rate_decay_factor,
         use_lstm=True,
