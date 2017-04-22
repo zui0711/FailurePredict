@@ -15,7 +15,7 @@ def create_model(embedding_trainable=True, embedding_matrix=None):
         model.add(Embedding(input_dim=LSTM_vocab_size+1, output_dim=LSTM_embedding_size,
                             weights=[embedding_matrix], input_length=LSTM_max_len, trainable=False))
 
-    model.add(LSTM(LSTM_embedding_size, dropout_W=0.2, dropout_U=0.2))
+    model.add(LSTM(LSTM_embedding_size, dropout_W=0.1, dropout_U=0.1))
     model.add(Dense(1))
     model.add(Activation('sigmoid'))
 
