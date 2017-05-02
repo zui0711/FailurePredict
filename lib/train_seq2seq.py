@@ -16,11 +16,12 @@ from lib import data_utils
 
 
 def train():
-    sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0)
     print("Preparing dialog data in %s" % FLAGS.data_dir)
     train_data, dev_data, _ = data_utils.prepare_dialog_data(FLAGS.data_dir, FLAGS.vocab_size)
 
-    with tf.Session() as sess:
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    with tf.Session(config=config) as sess:
 
         # Create model.
         print("Creating %d layers of %d units." % (FLAGS.num_layers, FLAGS.hidden_size))
@@ -41,7 +42,6 @@ def train():
 
         # This is the training loop.
         step_time, total_time, loss = 0.0, 0.0, 0.0
-        current_step = 0
         previous_losses = []
 
         print("start train...")
@@ -62,15 +62,16 @@ def train():
 
             step_time += (time.time() - start_time) / FLAGS.steps_per_checkpoint
             loss += step_loss / FLAGS.steps_per_checkpoint
-            current_step += 1
 
             # Once in a while, we save checkpoint, print statistics, and run evals.
-            if current_step % FLAGS.steps_per_checkpoint == 0:
-                # Print statistics for the previous epoch.
-                perplexity = math.exp(loss) if loss < 300 else float('inf')
+            if model.global_step.eval() % FLAGS.steps_per_checkpoint == 0:
+                print("\nTraining...")
+                if loss > 6:
+                    print("inf !!!")
+                    sys.exit(0)
                 total_time = step_time * FLAGS.steps_per_checkpoint
-                print ("global step %d learning rate %.4f step-time %.2f total_time %.4f perplexity %.4f, loss %0.7f" %
-                       (model.global_step.eval(), model.learning_rate.eval(), step_time, total_time, perplexity, loss))
+                print ("global step %d learning rate %.4f step-time %.2f total_time %.4f, loss %0.7f" %
+                       (model.global_step.eval(), model.learning_rate.eval(), step_time, total_time, loss))
 
                 # Decrease learning rate if no improvement was seen over last 3 times.
                 if len(previous_losses) > 2 and loss > max(previous_losses[-3:]):
@@ -78,17 +79,22 @@ def train():
 
                 previous_losses.append(loss)
 
+                # Run evals on development set and print their perplexity.
+                for bucket_id in xrange(len(BUCKETS)):
+                    print("Testing...")
+
+                    encoder_inputs, decoder_inputs, target_weights = model.get_batch(dev_set, bucket_id, "train")
+                    _, eval_loss, _ = model.step(sess, encoder_inputs, decoder_inputs, target_weights, bucket_id, True)
+
+                    if eval_loss > 6:
+                        print("inf !!!")
+                        sys.exit(0)
+
+                    print("eval: bucket %d, loss %0.7f" % (bucket_id, eval_loss))
+
+                sys.stdout.flush()
+
                 # Save checkpoint and zero timer and loss.
                 checkpoint_path = os.path.join(FLAGS.model_dir, "model.ckpt")
                 model.saver.save(sess, checkpoint_path, global_step=model.global_step)
                 step_time, loss = 0.0, 0.0
-
-                # Run evals on development set and print their perplexity.
-                for bucket_id in xrange(len(BUCKETS)):
-                    encoder_inputs, decoder_inputs, target_weights = model.get_batch(dev_set, bucket_id, "train")
-                    _, eval_loss, _ = model.step(sess, encoder_inputs, decoder_inputs, target_weights, bucket_id, True)
-
-                    eval_ppx = math.exp(eval_loss) if eval_loss < 300 else float('inf')
-                    print("  eval: bucket %d perplexity %.4f, loss %0.7f" % (bucket_id, eval_ppx, eval_loss))
-
-                sys.stdout.flush()

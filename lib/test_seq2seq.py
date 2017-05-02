@@ -18,44 +18,51 @@ def predict():
         return test_sentences
 
     bucket_id = 0
-    results_filename = 'results' + str(BUCKETS[bucket_id]) + ".txt"
-    results_filename_ids = '.'.join(['results'+str(BUCKETS[bucket_id]), "ids"+str(FLAGS.vocab_size), "txt"])
 
-    results_path = os.path.join(FLAGS.results_dir, results_filename)
-    results_path_ids = os.path.join(FLAGS.results_dir, results_filename_ids)
-    with tf.Session() as sess, open(results_path, 'w') as results_f, \
-            open(results_path_ids, 'w') as results_f_ids:
-        batch_size = 128
-        model = create_model(sess, forward_only=True)
-        model.batch_size = batch_size
-        # batch_size = model.batch_size
+    max_len = BUCKETS[bucket_id][0]
 
-        vocab_path = os.path.join(FLAGS.data_dir, "vocab%d.txt" % FLAGS.vocab_size)
-        vocab, rev_vocab = initialize_vocabulary(vocab_path)
+    vocab_path = os.path.join(FLAGS.data_dir, "vocab%d.txt" % FLAGS.vocab_size)
+    vocab, rev_vocab = initialize_vocabulary(vocab_path)
 
-        encoder_size, decoder_size = model.buckets[bucket_id]
-        test_dataset = _get_test_dataset(encoder_size)
-        test_len = len(test_dataset)
-        batch_num = test_len / batch_size + (0 if test_len%batch_size == 0 else 1)
+    test_dataset = _get_test_dataset(max_len)
+    test_len = len(test_dataset)
+    batch_size = FLAGS.predict_batch_size
+    batch_num = test_len / batch_size + (0 if test_len % batch_size == 0 else 1)
 
-        # print("predict...")
-        for num in xrange(batch_num - 1):
-            this_batch = test_dataset[batch_size*num: batch_size*(num+1)]
-            encoder_inputs, decoder_inputs, target_weights = model.get_batch(this_batch, bucket_id, "predict")
-            _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs, target_weights, bucket_id, True)
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    with tf.Session(config=config) as sess:
+        predict_step = 5000
+        model = create_model(sess, forward_only=True, predict_step=predict_step)
 
-            for b in xrange(batch_size):
-                outputs = []
-                for en in xrange(encoder_size):
-                    selected_token_id = int(np.argmax(output_logits[en][b]))
+        results_filename = 'results(%d, %d).%d' % (max_len, max_len, model.global_step.eval())
+        results_filename_ids = "results(%d, %d).ids%d.%d" % (max_len, max_len, FLAGS.vocab_size, model.global_step.eval())
 
-                    if selected_token_id == EOS_ID:
-                        break
-                    else:
-                        outputs.append(selected_token_id)
-                output_sentence = ' '.join([rev_vocab[output] for output in outputs])
-                output_sentence_ids = ' '.join([str(output) for output in outputs])
+        results_path = os.path.join(FLAGS.results_dir, results_filename)
+        results_path_ids = os.path.join(FLAGS.results_dir, results_filename_ids)
 
-                results_f.write(output_sentence + '\n')
-                results_f_ids.write(output_sentence_ids + "\n")
-            print("batch %d finish..."%num)
+        with open(results_path, 'w') as results_f, open(results_path_ids, 'w') as results_f_ids:
+            for num in xrange(batch_num - 1):
+                this_batch = test_dataset[batch_size*num: batch_size*(num+1)]
+                encoder_inputs, decoder_inputs, target_weights = model.get_batch(this_batch, bucket_id, "predict")
+                _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs, target_weights, bucket_id, True)
+
+                for b in xrange(batch_size):
+                    outputs = []
+                    for en in xrange(max_len):
+                        selected_token_id = int(np.argmax(output_logits[en][b]))
+
+                        if selected_token_id == EOS_ID:
+                            break
+                        else:
+                            outputs.append(selected_token_id)
+
+                    output_sentence = ' '.join([rev_vocab[output] for output in outputs])
+                    output_sentence_ids = ' '.join([str(output) for output in outputs])
+
+                    # if output_sentence == "":
+                    #     print(num, b, output)
+
+                    results_f.write(output_sentence + '\n')
+                    results_f_ids.write(output_sentence_ids + "\n")
+                print("batch %d finish..."%num)

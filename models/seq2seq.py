@@ -3,6 +3,7 @@ import random
 import numpy as np
 
 import tensorflow as tf
+from tensorflow.python.platform import gfile
 
 from tensorflow.models.rnn.translate import data_utils
 from configs.data_config import *
@@ -239,7 +240,7 @@ class Seq2SeqModel(object):
 
 
 
-def create_model(session, forward_only):
+def create_model(session, forward_only, predict_step=None):
     """Create translation model and initialize or load parameters in session."""
     model = Seq2SeqModel(
         source_vocab_size=FLAGS.vocab_size,
@@ -256,10 +257,15 @@ def create_model(session, forward_only):
         forward_only=forward_only)
 
     ckpt = tf.train.get_checkpoint_state(FLAGS.model_dir)
-    # if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
-    if ckpt:
-        print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
-        model.saver.restore(session, ckpt.model_checkpoint_path)
+    if ckpt and gfile.Exists(ckpt.model_checkpoint_path):
+        if not forward_only:
+            print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
+            model.saver.restore(session, ckpt.model_checkpoint_path)
+        else:
+            predict_path = pjoin(FLAGS.model_dir, "model.ckpt-%d"%predict_step)
+            print("Reading model parameters from %s" % predict_path)
+            model.saver.restore(session, predict_path)
+            model.batch_size = FLAGS.predict_batch_size
     else:
         print("Created model with fresh parameters.")
         session.run(tf.initialize_all_variables())
