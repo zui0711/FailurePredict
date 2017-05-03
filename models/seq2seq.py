@@ -262,10 +262,8 @@ def create_model(session, forward_only, predict_step=None):
             print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
             model.saver.restore(session, ckpt.model_checkpoint_path)
         else:
-            predict_path = pjoin(FLAGS.model_dir, "model.ckpt-%d"%predict_step)
-            print("Reading model parameters from %s" % predict_path)
+            predict_path = pjoin(FLAGS.model_dir, "model.ckpt-5000")
             model.saver.restore(session, predict_path)
-            model.batch_size = FLAGS.predict_batch_size
     else:
         print("Created model with fresh parameters.")
         session.run(tf.initialize_all_variables())
