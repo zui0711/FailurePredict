@@ -2,20 +2,20 @@ import numpy as np
 
 np.random.seed(1337)
 
-from keras.preprocessing import sequence
 from models.LSTM import *
-from gensim.models import Word2Vec
+from keras.preprocessing import sequence
+# from gensim.models import Word2Vec
+import sys
 
 
-def load_emb_mat():
-    w2v = Word2Vec.load(pjoin(SAVE_DATA_DIR, "word_emb_size100wind5iter5"))
-
-    embedding_matrix = np.zeros((LSTM_vocab_size+1, LSTM_embedding_size))
-    for index in range(1, LSTM_vocab_size+1):
-        embedding_matrix[index] = w2v[str(index+2)]
-
-    return embedding_matrix
-
+# def load_emb_mat():
+#     w2v = Word2Vec.load(pjoin(SAVE_DATA_DIR, "word_emb_size100wind5iter5"))
+#
+#     embedding_matrix = np.zeros((LSTM_vocab_size+1, LSTM_embedding_size))
+#     for index in range(1, LSTM_vocab_size+1):
+#         embedding_matrix[index] = w2v[str(index+2)]
+#
+#     return embedding_matrix
 
 def train(X_train, y_train, X_test, y_test):
     print(SAVE_DATA_DIR)
@@ -27,21 +27,27 @@ def train(X_train, y_train, X_test, y_test):
     print('X_test shape:', X_test.shape)
 
     print('\nBuild model...')
-    model = create_model(embedding_trainable=True)#, embedding_matrix=load_emb_mat())
+    # model = create_model_lstm(embedding_trainable=True)#, embedding_matrix=load_emb_mat())
+    model = create_model_lstm()
 
     print('\nTrain...')
-    X_test = sequence.pad_sequences(X_test, maxlen=LSTM_max_len)
-    model.fit(X_train, y_train, batch_size=LSTM_batch_size, nb_epoch=50, validation_data=[X_test, y_test],
-              shuffle=True)
-    model.save_weights(pjoin(SAVE_DATA_DIR, "lstm_model.h5"))
+    # print model.get_weights()[1][0]
+
+    for i in xrange(5):
+        print("\ni = %d"%i)
+
+        # for _ in xrange(5):
+        #     print np.random.choice([1, 2, 4, 5, 6, 7, 8, 9])
+        model.fit(X_train, y_train, nb_epoch=10, batch_size=LSTM_batch_size, validation_data=[X_test, y_test])
+        model.save_weights(pjoin(SAVE_DATA_DIR, "lstm_model_%d.h5"%(i*10)))
 
 
-def predict(X_test, y_test, analysis_mode=False):
+def predict(X_test, y_test, mode_name, analysis_mode=False):
     X_test = sequence.pad_sequences(X_test, maxlen=LSTM_max_len)
     print('X_test shape:', X_test.shape)
 
-    model = create_model()
-    model.load_weights(pjoin(SAVE_DATA_DIR, "lstm_model.h5"))
+    model = create_model_lstm()
+    model.load_weights(pjoin(SAVE_DATA_DIR, mode_name))
 
     if not analysis_mode:
         score, acc = model.evaluate(X_test, y_test,
