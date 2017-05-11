@@ -54,6 +54,7 @@ def get_score(file_r, file_h):
         print("get_score: total time = %0.2f, per time = %0.2f" % (t, t / 500.))
 
         print("WER = %.5f, BLUE = %.5f\n" % (np.mean(wer), np.mean(bleu)))
+        return np.mean(wer), np.mean(bleu)
 
 
 if __name__ == '__main__':
