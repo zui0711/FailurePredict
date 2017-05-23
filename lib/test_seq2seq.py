@@ -9,7 +9,7 @@ from lib.data_utils import *
 from lib.seq2seq_score import get_score
 from models.seq2seq import create_model
 
-def predict():
+def predict(steps):
     def _get_test_dataset(encoder_size):
         with open(TEST_DATASET_PATH) as test_fh:
             test_sentences = []
@@ -37,7 +37,10 @@ def predict():
     config.gpu_options.allow_growth = True
     with tf.Session(config=config) as sess:
         model = create_model(sess, forward_only=True)
-        for predict_step in range(5000, 35000, 5000):
+        record_file_name = "score"
+        record_file = open(pjoin(FLAGS.results_dir, record_file_name), mode="ab", buffering=0)
+
+        for predict_step in steps:
             predict_path = pjoin(FLAGS.model_dir, "model.ckpt-%d" % predict_step)
             print("Reading model parameters from %s" % predict_path)
             model.saver.restore(sess, predict_path)
@@ -80,5 +83,8 @@ def predict():
 
             # print("Predict finish...")
 
-            print file_r, results_path
-            get_score(file_r, results_path)
+            # print file_r, results_path
+            WER, BLEU = get_score(file_r, results_path)
+            record_file.write("%d\t%.5f\t%.5f\n" % (predict_step, WER, BLEU))
+
+        record_file.close()
