@@ -37,7 +37,7 @@ def predict(steps):
     config.gpu_options.allow_growth = True
     with tf.Session(config=config) as sess:
         model = create_model(sess, forward_only=True)
-        record_file_name = "score"
+        record_file_name = "seq2seq_score"
         record_file = open(pjoin(FLAGS.results_dir, record_file_name), mode="ab", buffering=0)
 
         for predict_step in steps:

@@ -10,7 +10,7 @@ import numpy as np
 import tensorflow as tf
 
 from models.seq2seq import create_model
-from configs.data_config import FLAGS, BUCKETS
+from configs.data_config import FLAGS, BUCKETS, pjoin
 from lib.data_utils import read_data
 from lib import data_utils
 
@@ -22,6 +22,9 @@ def train():
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     with tf.Session(config=config) as sess:
+
+        record_file_name = "seq2seq_loss"
+        record_file = open(pjoin(FLAGS.results_dir, record_file_name), mode="ab", buffering=0)
 
         # Create model.
         print("Creating %d layers of %d units." % (FLAGS.num_layers, FLAGS.hidden_size))
@@ -90,11 +93,13 @@ def train():
                         print("inf !!!")
                         sys.exit(0)
 
-                    print("eval: bucket %d, loss %0.7f" % (bucket_id, eval_loss))
+                    print("eval: bucket %d, loss %0.5f" % (bucket_id, eval_loss))
 
                 sys.stdout.flush()
+                record_file.write("%d\t%.5f\t%.5f\n" % (model.global_step.eval(), loss, eval_loss))
 
                 # Save checkpoint and zero timer and loss.
-                checkpoint_path = os.path.join(FLAGS.model_dir, "model.ckpt")
-                model.saver.save(sess, checkpoint_path, global_step=model.global_step)
+                if model.global_step.eval() % FLAGS.steps_per_predictpoint == 0:
+                    checkpoint_path = os.path.join(FLAGS.model_dir, "model.ckpt")
+                    model.saver.save(sess, checkpoint_path, global_step=model.global_step)
                 step_time, loss = 0.0, 0.0

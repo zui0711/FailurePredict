@@ -58,6 +58,8 @@ def get_score(file_r, file_h):
 
 
 if __name__ == '__main__':
+    SAVE_DATA_DIR = pjoin("/media/workserv/Seagate Backup Plus Drive/ALL_DATA/FailurePredict", prepare_data_label,
+                          "_".join([str(encode_decode_window), str(encode_decode_gap), str(encode_decode_step), "good"]))
     file_r = pjoin(SAVE_DATA_DIR, "test/decode.txt")
-    file_h = pjoin(SAVE_DATA_DIR, "results/results(300, 300).5000")
+    file_h = pjoin(SAVE_DATA_DIR, "results/results(360, 360).txt_218300")
     get_score(file_r, file_h)
