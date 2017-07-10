@@ -1,6 +1,8 @@
 import sys
 from PyQt4 import QtGui, uic
 
+from do_seq2seq import *
+
 qtCreatorFile_main = "uis/main.ui"
 qtCreatorFile_l1 = "uis/l1.ui"
 qtCreatorFile_l2 = "uis/l2.ui"
@@ -16,14 +18,14 @@ class MyApp(QtGui.QMainWindow, Ui_MainWindow):
         Ui_MainWindow.__init__(self)
         self.setupUi(self)
         self.l1 = l1()
-        self.trainButton.clicked.connect(self.t)
-        self.runButton.clicked.connect(self.r)
+        self.trainButton.clicked.connect(self.print_t)
+        self.runButton.clicked.connect(self.print_r)
 
-    def t(self):
+    def print_t(self):
         print("Train...")
         self.l1.show()
 
-    def r(self):
+    def print_r(self):
         print("Run...")
 
 
@@ -32,16 +34,18 @@ class l1(QtGui.QMainWindow, Ui_l1Window):
         QtGui.QMainWindow.__init__(self)
         Ui_l1Window.__init__(self)
         self.setupUi(self)
-        self.loadButton.clicked.connect(self.load)
+        self.loadButton.clicked.connect(self.load_data)
         self.pushButton.clicked.connect(self.print_)
         self.l2 = l2()
 
-    def load(self):
+    def load_data(self):
         print("Load...")
+        print self.lineEdit.text().toUtf8()
 
     def print_(self):
         self.l2.show()
         print("Print...")
+        tf.app.run()
 
 
 class l2(QtGui.QMainWindow, Ui_l2Window):
@@ -49,6 +53,13 @@ class l2(QtGui.QMainWindow, Ui_l2Window):
         QtGui.QMainWindow.__init__(self)
         Ui_l2Window.__init__(self)
         self.setupUi(self)
+        self.textBrowser.setText("asdf")
+        self.textBrowser.append("asdfas")
+        self.print_()
+
+    def print_(self):
+        for _ in xrange(100):
+            self.textBrowser.append(str(_))
 
 
 

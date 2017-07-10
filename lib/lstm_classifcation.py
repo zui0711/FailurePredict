@@ -6,7 +6,7 @@ from models.LSTM import *
 from keras.preprocessing import sequence
 # from gensim.models import Word2Vec
 import sys
-
+# SAVE_DATA_DIR = "/media/workserv/Seagate Backup Plus Drive/ALL_DATA/FailurePredict/Paging/50_2000_10_4"
 
 # def load_emb_mat():
 #     w2v = Word2Vec.load(pjoin(SAVE_DATA_DIR, "word_emb_size100wind5iter5"))
@@ -38,22 +38,24 @@ def train(X_train, y_train, X_test, y_test):
 
         # for _ in xrange(5):
         #     print np.random.choice([1, 2, 4, 5, 6, 7, 8, 9])
-        model.fit(X_train, y_train, nb_epoch=10, batch_size=LSTM_batch_size, validation_data=[X_test, y_test])
-        model.save_weights(pjoin(SAVE_DATA_DIR, "lstm_model_%d.h5"%(i*10)))
+        model.fit(X_train, y_train, nb_epoch=10, verbose=1, batch_size=LSTM_batch_size, validation_data=[X_test, y_test])
+        model.save_weights(pjoin(SAVE_DATA_DIR, "lstm_model_%d.h5"%(i*10+10)))
 
 
-def predict(X_test, y_test, mode_name, analysis_mode=False):
+def predict(X_test, y_test, mode_name, record_file, analysis_mode=False):
     X_test = sequence.pad_sequences(X_test, maxlen=LSTM_max_len)
     print('X_test shape:', X_test.shape)
 
     model = create_model_lstm()
-    model.load_weights(pjoin(SAVE_DATA_DIR, mode_name))
+    model.load_weights(pjoin(SAVE_DATA_DIR, mode_name+".h5"))
 
     if not analysis_mode:
         score, acc = model.evaluate(X_test, y_test,
                                     batch_size=LSTM_batch_size)
-        print('Test loss:', score)
-        print('Test accuracy:', acc)
+        print('Test loss: %0.5f' % score)
+        print('Test accuracy: %0.5f\n' % acc)
+
+        record_file.write("%.5f\t%.5f\n" % (score, acc))
 
     else:
         predict_y = model.predict(X_test)
