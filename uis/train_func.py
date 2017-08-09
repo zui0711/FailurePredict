@@ -27,7 +27,6 @@ class train(QtGui.QMainWindow, Ui_trainWindow):
         self.detectButton.clicked.connect(self._detect)
         self.predictButton.clicked.connect(self._predict)
 
-        
 
     def _load_data(self):
         print("Load...")
@@ -45,9 +44,13 @@ class train(QtGui.QMainWindow, Ui_trainWindow):
 
     def _detect(self):
         print("Detect...")
+        detect = DetectUi()
+        detect.exec_()
 
     def _predict(self):
         print('Predict...')
+        predict = PredictUi()
+        predict.exec_()
 
 
 class SetParamUi(QtGui.QDialog, Ui_paramWindow):
@@ -93,7 +96,7 @@ class PreproUi(QtGui.QDialog, Ui_preproWindow):
         self.wait("detection")
         self.textBrowser.append("Failue prediction preprocess...")
         self.wait("preditcion")
-        print "pp"
+        # print "pp"
 
     def wait(self, mode):
         self.bwThread = BackWorkThread(mode)
@@ -109,10 +112,11 @@ class PreproUi(QtGui.QDialog, Ui_preproWindow):
             print "Failue prediction preprocess FINISH"
 
 
-class DetecUi(QtGui.QDialog, Ui_detectWindow):
+class DetectUi(QtGui.QDialog, Ui_detectWindow):
     def __init__(self):
         QtGui.QDialog.__init__(self)
         Ui_detectWindow.__init__(self)
+        self.setupUi(self)
         sys.stdout = EmittingStream(textWritten=self.normalOutputWritten)
 
     def __del__(self):
@@ -126,6 +130,23 @@ class DetecUi(QtGui.QDialog, Ui_detectWindow):
         self.bwThread.start()
 
 
+class PredictUi(QtGui.QDialog, Ui_predictWindow):
+    def __init__(self):
+        QtGui.QDialog.__init__(self)
+        Ui_predictWindow.__init__(self)
+        self.setupUi(self)
+        sys.stdout = EmittingStream(textWritten=self.normalOutputWritten)
+
+    def __del__(self):
+        sys.stdout = sys.__stdout__
+
+    def normalOutputWritten(self, text):
+        self.textBrowser.append(text)
+
+        self.bwThread = BackWorkThread("predict")
+        self.bwThread.finishSignal.connect(self.BackWorkEnd)
+        self.bwThread.start()
+
 class BackWorkThread(QtCore.QThread):
     finishSignal = QtCore.pyqtSignal(str)
 
@@ -134,7 +155,7 @@ class BackWorkThread(QtCore.QThread):
         self.mode = mode
 
     def run(self):
-        time.sleep(1)
+        time.sleep(6)
         if self.mode == "detection":
             print "STDOUT Failue detection preprocess..."
             self.finishSignal.emit("detection")
