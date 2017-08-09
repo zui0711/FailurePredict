@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>运行</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QPushButton" name="detectButton">
@@ -53,9 +53,9 @@
    <widget class="QCheckBox" name="checkBox">
     <property name="geometry">
      <rect>
-      <x>130</x>
+      <x>120</x>
       <y>280</y>
-      <width>91</width>
+      <width>101</width>
       <height>21</height>
      </rect>
     </property>
@@ -63,7 +63,7 @@
      <string>是否自适应</string>
     </property>
    </widget>
-   <widget class="QLineEdit" name="lineEdit_2">
+   <widget class="QLineEdit" name="lineEdit">
     <property name="geometry">
      <rect>
       <x>80</x>

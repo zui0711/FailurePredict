@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>选择</string>
+   <string>训练</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QLineEdit" name="lineEdit">
@@ -51,7 +51,7 @@
      <rect>
       <x>130</x>
       <y>160</y>
-      <width>231</width>
+      <width>238</width>
       <height>191</height>
      </rect>
     </property>
@@ -120,11 +120,6 @@
      </item>
     </layout>
    </widget>
-   <zorder>lineEdit</zorder>
-   <zorder>loadButton</zorder>
-   <zorder>verticalLayoutWidget</zorder>
-   <zorder>paramButton</zorder>
-   <zorder>horizontalLayoutWidget_2</zorder>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>

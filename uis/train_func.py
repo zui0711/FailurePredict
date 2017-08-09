@@ -6,10 +6,14 @@ import sys
 qtCreatorFile_train = "uis/train_layout.ui"
 qtCreatorFile_param = "uis/param_layout.ui"
 qtCreatorFile_prepro = "uis/prepro_layout.ui"
+qtCreatorFile_detect = "uis/detect_layout.ui"
+qtCreatorFile_predict = "uis/predict_layout.ui"
 
 Ui_trainWindow, QttrainClass = uic.loadUiType(qtCreatorFile_train)
 Ui_paramWindow, QtparamClass = uic.loadUiType(qtCreatorFile_param)
 Ui_preproWindow, QtpreproClass = uic.loadUiType(qtCreatorFile_prepro)
+Ui_detectWindow, QtdetectClass = uic.loadUiType(qtCreatorFile_detect)
+Ui_predictWindow, QtpredictClass = uic.loadUiType(qtCreatorFile_predict)
 
 
 class train(QtGui.QMainWindow, Ui_trainWindow):
@@ -23,8 +27,7 @@ class train(QtGui.QMainWindow, Ui_trainWindow):
         self.detectButton.clicked.connect(self._detect)
         self.predictButton.clicked.connect(self._predict)
 
-        self.set_param = SetParamUi()
-        self.prepro = PreproUi()
+        
 
     def _load_data(self):
         print("Load...")
@@ -32,10 +35,13 @@ class train(QtGui.QMainWindow, Ui_trainWindow):
 
     def _set_param(self):
         print("set params...")
-        self.set_param.show()
+        set_param = SetParamUi()
+        set_param.exec_()
 
     def _prepro(self):
-        self.prepro.show()
+        print("prepro...")
+        prepro = PreproUi()
+        prepro.exec_()
 
     def _detect(self):
         print("Detect...")
@@ -44,13 +50,12 @@ class train(QtGui.QMainWindow, Ui_trainWindow):
         print('Predict...')
 
 
-class SetParamUi(QtGui.QMainWindow, Ui_paramWindow):
+class SetParamUi(QtGui.QDialog, Ui_paramWindow):
     def __init__(self):
-        QtGui.QMainWindow.__init__(self)
+        QtGui.QDialog.__init__(self)
         Ui_paramWindow.__init__(self)
         self.setupUi(self)
-        # self.plainTextEdit.setPlainText("abc")
-        self.pushButton.clicked.connect(self.save_param)
+        self.saveButton.clicked.connect(self.save_param)
 
         self.param_path = "params.py"
         # print(open(self.param_path).read())
@@ -63,12 +68,11 @@ class SetParamUi(QtGui.QMainWindow, Ui_paramWindow):
         fp.close()
 
 
-class PreproUi(QtGui.QMainWindow, Ui_preproWindow):
-    def __init__(self):
-        QtGui.QMainWindow.__init__(self)
+class PreproUi(QtGui.QDialog, Ui_preproWindow):
+    def __init__(self, parent=None):
+        QtGui.QDialog.__init__(self)
         Ui_preproWindow.__init__(self)
         self.setupUi(self)
-
         self.pushButton.clicked.connect(self.start)
         sys.stdout = EmittingStream(textWritten=self.normalOutputWritten)
 
@@ -76,78 +80,74 @@ class PreproUi(QtGui.QMainWindow, Ui_preproWindow):
         sys.stdout = sys.__stdout__
 
     def normalOutputWritten(self, text):
-        cursor = self.textBrowser.textCursor()
-        cursor.movePosition(QtGui.QTextCursor.End)
-        cursor.insertText(text)
-        self.textBrowser.setTextCursor(cursor)
-        self.textBrowser.ensureCursorVisible()
+        self.textBrowser.append(text)
+        # cursor = self.textBrowser.textCursor()
+        # cursor.movePosition(QtGui.QTextCursor.End)
+        # cursor.insertText(text)
+        # self.textBrowser.setTextCursor(cursor)
+        # self.textBrowser.ensureCursorVisible()
 
-        # self.start2()
 
     def start(self):
         self.textBrowser.append("Failue detection preprocess...")
         self.wait("detection")
         self.textBrowser.append("Failue prediction preprocess...")
         self.wait("preditcion")
-
-    # def start2(self):
-    #     self.det_prepro()
-    #     self.pred_prepro()
-
-    # def det_prepro(self):
-    #     print("detection preprocess")
-    #     self.textBrowser.setText("Failue detection preprocess...")
-    #     self.wait()
-    #     self.textBrowser.append("Failue detection preprocess FINISH")
-    #
-    # def pred_prepro(self):
-    #     print("prediction preprocess")
-    #     self.textBrowser.append("Failue prediction preprocess...")
-    #     self.wait()
-    #     self.textBrowser.append("Failue prediction preprocess FINISH")
+        print "pp"
 
     def wait(self, mode):
-        self.bwThread = BigWorkThread(mode)
-        self.bwThread.finishSignal.connect(self.BigWorkEnd)
+        self.bwThread = BackWorkThread(mode)
+        self.bwThread.finishSignal.connect(self.BackWorkEnd)
         self.bwThread.start()
 
-    def BigWorkEnd(self, mode):
+    def BackWorkEnd(self, mode):
         if mode[0] == "detection":
-            self.textBrowser.append("\nFailue detection preprocess FINISH")
+            # self.textBrowser.append()
+            print "Failue detection preprocess FINISH"
         else:
-            self.textBrowser.append("\nFailue prediction preprocess FINISH")
+            # self.textBrowser.append()
+            print "Failue prediction preprocess FINISH"
 
 
-# class PreproUi(QtGui.QMainWindow, Ui_preproWindow):
-#     def __int__(self):
-#         QtGui.QMainWindow.__init__(self)
-#         Ui_preproWindow.__init__(self)
-#         self.setupUi(self)
+class DetecUi(QtGui.QDialog, Ui_detectWindow):
+    def __init__(self):
+        QtGui.QDialog.__init__(self)
+        Ui_detectWindow.__init__(self)
+        sys.stdout = EmittingStream(textWritten=self.normalOutputWritten)
+
+    def __del__(self):
+        sys.stdout = sys.__stdout__
+
+    def normalOutputWritten(self, text):
+        self.textBrowser.append(text)
+
+        self.bwThread = BackWorkThread("detect")
+        self.bwThread.finishSignal.connect(self.BackWorkEnd)
+        self.bwThread.start()
 
 
-class BigWorkThread(QtCore.QThread):
-    """docstring for BigWorkThread"""
-    finishSignal = QtCore.pyqtSignal(list)
+class BackWorkThread(QtCore.QThread):
+    finishSignal = QtCore.pyqtSignal(str)
 
     def __init__(self, mode, parent=None):
-        super(BigWorkThread, self).__init__(parent)
+        super(BackWorkThread, self).__init__(parent)
         self.mode = mode
 
     def run(self):
-        time.sleep(5)
+        time.sleep(1)
         if self.mode == "detection":
-            print "\nSTDOUT Failue detection preprocess..."
-            self.finishSignal.emit(["detection"])
+            print "STDOUT Failue detection preprocess..."
+            self.finishSignal.emit("detection")
         else:
-            print "\nSTDOUT Failue prediction preprocess..."
-            self.finishSignal.emit(["prediction"])
+            print "STDOUT Failue prediction preprocess..."
+            self.finishSignal.emit("prediction")
+
+
 
 class EmittingStream(QtCore.QObject):
     textWritten = QtCore.pyqtSignal(str)
-
     def write(self, text):
         self.textWritten.emit(str(text))
-
 
 
 if __name__ == "__main__":
@@ -155,4 +155,4 @@ if __name__ == "__main__":
     window = train()
     window.show()
     sys.exit(app.exec_())
-
+    # app.exec_()
