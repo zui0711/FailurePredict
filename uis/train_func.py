@@ -2,6 +2,8 @@ import sys
 from PyQt4 import QtGui, QtCore, uic
 import time
 import sys
+from interact import *
+from os.path import join as pjoin
 
 qtCreatorFile_train = "uis/train_layout.ui"
 qtCreatorFile_param = "uis/param_layout.ui"
@@ -17,7 +19,7 @@ Ui_predictWindow, QtpredictClass = uic.loadUiType(qtCreatorFile_predict)
 
 
 class train(QtGui.QMainWindow, Ui_trainWindow):
-    def __init__(self, parent=None):
+    def __init__(self, path, parent=None):
         QtGui.QMainWindow.__init__(self)
         Ui_trainWindow.__init__(self)
         self.setupUi(self)
@@ -26,149 +28,140 @@ class train(QtGui.QMainWindow, Ui_trainWindow):
         self.preproButton.clicked.connect(self._prepro)
         self.detectButton.clicked.connect(self._detect)
         self.predictButton.clicked.connect(self._predict)
-
+        self.path = path
 
     def _load_data(self):
         print("Load...")
         print self.lineEdit.text().toUtf8()
+        self.path = str(self.lineEdit.text().toUtf8())
 
     def _set_param(self):
         print("set params...")
-        set_param = SetParamUi()
+        set_param = SetParamUi(self.path)
         set_param.exec_()
 
     def _prepro(self):
         print("prepro...")
-        prepro = PreproUi()
+        prepro = PreproUi(self.path)
         prepro.exec_()
 
     def _detect(self):
         print("Detect...")
-        detect = DetectUi()
+        detect = DetectUi(self.path)
         detect.exec_()
 
     def _predict(self):
         print('Predict...')
-        predict = PredictUi()
+        predict = PredictUi(self.path)
         predict.exec_()
+
+    def get_path(self):
+        return self.path
 
 
 class SetParamUi(QtGui.QDialog, Ui_paramWindow):
-    def __init__(self):
+    def __init__(self, path):
         QtGui.QDialog.__init__(self)
         Ui_paramWindow.__init__(self)
         self.setupUi(self)
         self.saveButton.clicked.connect(self.save_param)
+        self.param_path = pjoin(path, "params.py")
 
-        self.param_path = "params.py"
-        # print(open(self.param_path).read())
-        self.plainTextEdit.setPlainText(open(self.param_path).read())
+        self.plainTextEdit.setPlainText(open("params.py").read())
 
     def save_param(self):
         s = self.plainTextEdit.toPlainText()
-        fp = open(self.param_path, mode='w')
-        fp.write(s)
-        fp.close()
+        open("params.py", mode='w').write(s)
+        open(self.param_path, mode='w').write(s)
 
 
 class PreproUi(QtGui.QDialog, Ui_preproWindow):
-    def __init__(self, parent=None):
+    def __init__(self, path, parent=None):
         QtGui.QDialog.__init__(self)
         Ui_preproWindow.__init__(self)
         self.setupUi(self)
-        self.pushButton.clicked.connect(self.start)
+        # self.path = path
         sys.stdout = EmittingStream(textWritten=self.normalOutputWritten)
+        self.bwThread = BackWorkThread(path, "train_prepro")
+        self.bwThread.start()
 
     def __del__(self):
         sys.stdout = sys.__stdout__
 
     def normalOutputWritten(self, text):
-        self.textBrowser.append(text)
-        # cursor = self.textBrowser.textCursor()
-        # cursor.movePosition(QtGui.QTextCursor.End)
-        # cursor.insertText(text)
-        # self.textBrowser.setTextCursor(cursor)
-        # self.textBrowser.ensureCursorVisible()
-
-
-    def start(self):
-        self.textBrowser.append("Failue detection preprocess...")
-        self.wait("detection")
-        self.textBrowser.append("Failue prediction preprocess...")
-        self.wait("preditcion")
-        # print "pp"
-
-    def wait(self, mode):
-        self.bwThread = BackWorkThread(mode)
-        self.bwThread.finishSignal.connect(self.BackWorkEnd)
-        self.bwThread.start()
-
-    def BackWorkEnd(self, mode):
-        if mode[0] == "detection":
-            # self.textBrowser.append()
-            print "Failue detection preprocess FINISH"
-        else:
-            # self.textBrowser.append()
-            print "Failue prediction preprocess FINISH"
+        # self.textBrowser.append(text)
+        cursor = self.textBrowser.textCursor()
+        cursor.movePosition(QtGui.QTextCursor.End)
+        cursor.insertText(text)
+        self.textBrowser.setTextCursor(cursor)
+        self.textBrowser.ensureCursorVisible()
 
 
 class DetectUi(QtGui.QDialog, Ui_detectWindow):
-    def __init__(self):
+    def __init__(self, path):
         QtGui.QDialog.__init__(self)
         Ui_detectWindow.__init__(self)
         self.setupUi(self)
         sys.stdout = EmittingStream(textWritten=self.normalOutputWritten)
 
+        self.bwThread = BackWorkThread(path, "train_detect")
+        self.bwThread.start()
+
     def __del__(self):
         sys.stdout = sys.__stdout__
 
     def normalOutputWritten(self, text):
-        self.textBrowser.append(text)
-
-        self.bwThread = BackWorkThread("detect")
-        self.bwThread.finishSignal.connect(self.BackWorkEnd)
-        self.bwThread.start()
-
+        # self.textBrowser.append(text)
+        cursor = self.textBrowser.textCursor()
+        cursor.movePosition(QtGui.QTextCursor.End)
+        cursor.insertText(text)
+        self.textBrowser.setTextCursor(cursor)
+        self.textBrowser.ensureCursorVisible()
 
 class PredictUi(QtGui.QDialog, Ui_predictWindow):
-    def __init__(self):
+    def __init__(self, path):
         QtGui.QDialog.__init__(self)
         Ui_predictWindow.__init__(self)
         self.setupUi(self)
         sys.stdout = EmittingStream(textWritten=self.normalOutputWritten)
 
+        self.bwThread = BackWorkThread(path, "train_predict")
+        self.bwThread.start()
+
     def __del__(self):
         sys.stdout = sys.__stdout__
 
     def normalOutputWritten(self, text):
-        self.textBrowser.append(text)
-
-        self.bwThread = BackWorkThread("predict")
-        self.bwThread.finishSignal.connect(self.BackWorkEnd)
-        self.bwThread.start()
-
-class BackWorkThread(QtCore.QThread):
-    finishSignal = QtCore.pyqtSignal(str)
-
-    def __init__(self, mode, parent=None):
-        super(BackWorkThread, self).__init__(parent)
-        self.mode = mode
-
-    def run(self):
-        time.sleep(6)
-        if self.mode == "detection":
-            print "STDOUT Failue detection preprocess..."
-            self.finishSignal.emit("detection")
-        else:
-            print "STDOUT Failue prediction preprocess..."
-            self.finishSignal.emit("prediction")
+        # self.textBrowser.append(text)
+        cursor = self.textBrowser.textCursor()
+        cursor.movePosition(QtGui.QTextCursor.End)
+        cursor.insertText(text)
+        self.textBrowser.setTextCursor(cursor)
+        self.textBrowser.ensureCursorVisible()
 
 
-
-class EmittingStream(QtCore.QObject):
-    textWritten = QtCore.pyqtSignal(str)
-    def write(self, text):
-        self.textWritten.emit(str(text))
+# class BackWorkThread(QtCore.QThread):
+#     finishSignal = QtCore.pyqtSignal(str)
+#
+#     def __init__(self, mode, parent=None):
+#         super(BackWorkThread, self).__init__(parent)
+#         self.mode = mode
+#
+#     def run(self):
+#         time.sleep(3)
+#         if self.mode == "train_prepro":
+#             print "STDOUT TRAIN PREPROCESS..."
+#         elif self.mode == "train_detect":
+#             print "STDOUT TRAIN DETECT..."
+#         elif self.mode == "train_predict":
+#             print "STDOUT TRAIN PREDICT..."
+#         elif self.mode == "run_detect":
+#             print "STDOUT RUN DETECT..."
+#         elif self.mode == "run_predict":
+#             print "STDOUT RUN PREDICT..."
+#         else:
+#             exit(1)
+#
 
 
 if __name__ == "__main__":

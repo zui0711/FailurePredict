@@ -2,7 +2,7 @@
 
 _window_length = 50
 _gap = 2000
-_step_size = 10
+_step_size = 15
 
 # failure detect
 

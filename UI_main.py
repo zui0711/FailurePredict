@@ -19,15 +19,18 @@ class MyApp(QtGui.QMainWindow, Ui_MainWindow):
         # self.setAttribute(QtCore.Qt.WA_DeleteOnClose, True)
         self.trainButton.clicked.connect(self.print_t)
         self.runButton.clicked.connect(self.print_r)
+        self.path = ""
 
     def print_t(self):
         print("Train...")
-        self.train = train()
+        self.train = train(self.path)
         self.train.show()
+        # self.train.exec_()
+        # self.path = self.train.get_path()
 
     def print_r(self):
         print("Run...")
-        self.run = run()
+        self.run = run(self.train.get_path())
         self.run.show()
 
 
